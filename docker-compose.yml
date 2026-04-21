@@ -1,0 +1,54 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: it_skills_radar_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+    container_name: it_skills_radar_api
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    env_file:
+      - .env
+    ports:
+      - "${API_PORT}:8000"
+    volumes:
+      - ./:/project
+    depends_on:
+      db:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: .
+    container_name: it_skills_radar_dashboard
+    command: streamlit run dashboard/app.py --server.address 0.0.0.0 --server.port 8501
+    env_file:
+      - .env
+    environment:
+      API_URL: http://api:8000
+    ports:
+      - "${STREAMLIT_PORT}:8501"
+    volumes:
+      - ./:/project
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
