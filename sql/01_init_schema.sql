@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS roles (
     id BIGSERIAL PRIMARY KEY,
     role_code TEXT NOT NULL UNIQUE,
-    role_name_ru TEXT NOT NULL UNIQUE,
+    role_name TEXT NOT NULL UNIQUE,
     role_group TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_roles_role_code_format
@@ -19,7 +19,9 @@ CREATE TABLE IF NOT EXISTS skills (
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT chk_skills_slug_format
-        CHECK (skill_slug = LOWER(skill_slug))
+        CHECK (skill_slug = LOWER(skill_slug)),
+    CONSTRAINT chk_skills_category_not_blank
+        CHECK (skill_category IS NULL OR LENGTH(TRIM(skill_category)) > 0)
 );
 
 
@@ -31,7 +33,7 @@ CREATE TABLE IF NOT EXISTS vacancies (
     title TEXT NOT NULL,
     company_name TEXT NOT NULL,
     city TEXT,
-    country TEXT NOT NULL DEFAULT 'Россия',
+    country TEXT NOT NULL DEFAULT 'Russia',
     seniority_level TEXT NOT NULL DEFAULT 'unknown',
     employment_type TEXT NOT NULL DEFAULT 'unknown',
     work_format TEXT NOT NULL DEFAULT 'unknown',
@@ -51,8 +53,15 @@ CREATE TABLE IF NOT EXISTS vacancies (
         CHECK (employment_type IN ('full_time', 'part_time', 'internship', 'contract', 'project', 'unknown')),
     CONSTRAINT chk_vacancies_work_format
         CHECK (work_format IN ('office', 'remote', 'hybrid', 'unknown')),
+    CONSTRAINT chk_vacancies_country_not_blank
+        CHECK (LENGTH(TRIM(country)) > 0),
     CONSTRAINT chk_vacancies_dates
-        CHECK (published_at IS NULL OR published_at <= collected_at)
+        CHECK (published_at IS NULL OR published_at <= collected_at),
+    CONSTRAINT chk_vacancies_url_format
+        CHECK (
+            vacancy_url IS NULL
+            OR vacancy_url ~ '^https?://'
+        )
 );
 
 
@@ -60,6 +69,13 @@ CREATE TABLE IF NOT EXISTS salary_info (
     vacancy_id BIGINT PRIMARY KEY REFERENCES vacancies (id) ON DELETE CASCADE,
     salary_from NUMERIC(12, 2),
     salary_to NUMERIC(12, 2),
+    salary_mid NUMERIC(12, 2) GENERATED ALWAYS AS (
+        CASE
+            WHEN salary_from IS NOT NULL AND salary_to IS NOT NULL
+                THEN ROUND((salary_from + salary_to) / 2.0, 2)
+            ELSE COALESCE(salary_from, salary_to)
+        END
+    ) STORED,
     currency_code CHAR(3) NOT NULL DEFAULT 'RUB',
     gross_type TEXT NOT NULL DEFAULT 'unknown',
     salary_period TEXT NOT NULL DEFAULT 'month',
@@ -109,27 +125,40 @@ CREATE TABLE IF NOT EXISTS raw_source_metadata (
     CONSTRAINT chk_raw_metadata_source_name
         CHECK (source_name IN ('hh_ru', 'habr_career', 'superjob', 'manual')),
     CONSTRAINT chk_raw_metadata_http_status
-        CHECK (http_status IS NULL OR http_status BETWEEN 100 AND 599)
+        CHECK (http_status IS NULL OR http_status BETWEEN 100 AND 599),
+    CONSTRAINT chk_raw_metadata_url_format
+        CHECK (
+            source_url IS NULL
+            OR source_url ~ '^https?://'
+        )
 );
 
 
-CREATE INDEX IF NOT EXISTS idx_vacancies_role_published_at
-    ON vacancies (role_id, published_at DESC);
+CREATE INDEX IF NOT EXISTS idx_vacancies_role_seniority_published_at
+    ON vacancies (role_id, seniority_level, published_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_vacancies_seniority_published_at
-    ON vacancies (seniority_level, published_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_vacancies_country_city
-    ON vacancies (country, city);
+CREATE INDEX IF NOT EXISTS idx_vacancies_published_at
+    ON vacancies (published_at DESC);
 
 CREATE INDEX IF NOT EXISTS idx_vacancies_collected_at
     ON vacancies (collected_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_salary_info_currency_code
-    ON salary_info (currency_code);
+CREATE INDEX IF NOT EXISTS idx_vacancies_country_city
+    ON vacancies (country, city);
+
+CREATE INDEX IF NOT EXISTS idx_vacancies_is_active
+    ON vacancies (is_active)
+    WHERE is_active = TRUE;
+
+CREATE INDEX IF NOT EXISTS idx_salary_info_currency_period_mid
+    ON salary_info (currency_code, salary_period, salary_mid)
+    WHERE salary_mid IS NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_vacancy_skills_skill_id_vacancy_id
     ON vacancy_skills (skill_id, vacancy_id);
+
+CREATE INDEX IF NOT EXISTS idx_vacancy_skills_vacancy_id_required
+    ON vacancy_skills (vacancy_id, is_required);
 
 CREATE INDEX IF NOT EXISTS idx_skills_category
     ON skills (skill_category);

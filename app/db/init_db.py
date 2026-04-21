@@ -35,12 +35,12 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(
-        description="Инициализация схемы и seed-данных PostgreSQL."
+        description="Initialize PostgreSQL schema and optional seed data."
     )
     parser.add_argument(
         "--seed",
         action="store_true",
-        help="После схемы загрузить seed-данные.",
+        help="Load seed data after schema initialization.",
     )
     args = parser.parse_args()
 
