@@ -1,0 +1,3 @@
+id,title,company,location,description,skills,published_at,salary_from,salary_to,currency,gross_type,salary_period,url,employment_type,work_format
+csv-2001,Data Analyst Intern,Insight Hub,"Moscow, Russia","Support EDA, SQL checks, pandas notebooks and dashboard updates.","SQL; pandas; dashboard; Postgres","2026-04-16T10:00:00+03:00",70000,90000,RUB,gross,month,https://example.local/csv-2001,internship,hybrid
+csv-2002,Junior Data Scientist,Forecast Labs,"Novosibirsk, Russia","Python, NumPy, machine learning and sklearn for predictive models.","Python; NumPy; machine learning; sklearn","2026-04-17T12:45:00+03:00",130000,175000,RUB,gross,month,https://example.local/csv-2002,full_time,office

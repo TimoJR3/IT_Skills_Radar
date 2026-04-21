@@ -11,3 +11,12 @@ def test_sql_files_exist() -> None:
 
 def test_data_dictionary_exists() -> None:
     assert (BASE_DIR / "docs" / "data_dictionary.md").exists()
+
+
+def test_decisions_doc_exists() -> None:
+    assert (BASE_DIR / "docs" / "decisions.md").exists()
+
+
+def test_sample_sources_exist() -> None:
+    assert (BASE_DIR / "data" / "samples" / "prepared_vacancies.json").exists()
+    assert (BASE_DIR / "data" / "samples" / "prepared_vacancies.csv").exists()

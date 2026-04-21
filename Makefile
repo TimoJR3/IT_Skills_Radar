@@ -1,6 +1,6 @@
-PYTHON := python3
+PYTHON ?= python
 
-.PHONY: install run-api run-dashboard test lint up down init-db seed-db
+.PHONY: install run-api run-dashboard test lint up down init-db seed-db ingest-json ingest-csv dry-run-json
 
 install:
 	cp -n .env.example .env || true
@@ -28,3 +28,12 @@ init-db:
 
 seed-db:
 	docker compose exec -T db sh -lc 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f /docker-entrypoint-initdb.d/02_seed_data.sql'
+
+ingest-json:
+	$(PYTHON) -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual
+
+ingest-csv:
+	$(PYTHON) -m app.services.ingestion --input data/samples/prepared_vacancies.csv --source manual
+
+dry-run-json:
+	$(PYTHON) -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual --dry-run

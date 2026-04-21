@@ -1,0 +1,50 @@
+[
+  {
+    "id": "json-1001",
+    "title": "Junior Data Scientist / ML",
+    "company": "Signal AI",
+    "location": "Moscow, Russia",
+    "description": "<p>Build ML models, clean data, use Python, pandas, sklearn and Postgres SQL.</p>",
+    "skills": ["Python", "pandas", "sklearn", "Postgres", "SQL"],
+    "published_at": "2026-04-10T10:00:00+03:00",
+    "salary_from": 140000,
+    "salary_to": 190000,
+    "currency": "RUR",
+    "gross_type": "gross",
+    "salary_period": "month",
+    "url": "https://example.local/json-1001",
+    "employment_type": "full_time",
+    "work_format": "hybrid"
+  },
+  {
+    "id": "json-1002",
+    "title": "Product Analyst (AB tests / BI)",
+    "company": "Rocket Product",
+    "location": "Saint Petersburg, Russia",
+    "description": "Own experimentation backlog, run AB test analysis, build dashboards and SQL data marts.",
+    "skills": "A/B testing; experimentation; dashboard; SQL; Power BI",
+    "published_at": "2026-04-12T09:30:00+03:00",
+    "currency": "RUB",
+    "url": "https://example.local/json-1002",
+    "employment_type": "full_time",
+    "work_format": "remote"
+  },
+  {
+    "id": "json-1003",
+    "title": "ML Engineer",
+    "company": "Vision Lab",
+    "city": "Kazan",
+    "country": "Russia",
+    "description": "Production ML pipelines with machine learning, Python, Git and scikit learn.",
+    "skills": ["ML", "Python", "GitHub", "scikit-learn"],
+    "published_at": "2026-04-15T11:15:00+03:00",
+    "salary_from": 180000,
+    "salary_to": 240000,
+    "currency": "RUB",
+    "gross_type": "net",
+    "salary_period": "month",
+    "url": "https://example.local/json-1003",
+    "employment_type": "contract",
+    "work_format": "office"
+  }
+]
