@@ -8,6 +8,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 SQL_DIR = BASE_DIR / "sql"
 SCHEMA_FILE = SQL_DIR / "01_init_schema.sql"
 SEED_FILE = SQL_DIR / "02_seed_data.sql"
+ANALYTICS_FILE = SQL_DIR / "03_analytics_views.sql"
 
 
 def _load_sql(path: Path) -> str:
@@ -25,6 +26,11 @@ def apply_sql_file(path: Path) -> None:
 
 def init_schema() -> None:
     apply_sql_file(SCHEMA_FILE)
+    apply_sql_file(ANALYTICS_FILE)
+
+
+def init_analytics() -> None:
+    apply_sql_file(ANALYTICS_FILE)
 
 
 def seed_data() -> None:

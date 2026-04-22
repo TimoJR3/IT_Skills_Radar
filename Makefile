@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: install run-api run-dashboard test lint up down init-db seed-db ingest-json ingest-csv dry-run-json
+.PHONY: install run-api run-dashboard test lint up down init-db init-analytics seed-db ingest-json ingest-csv dry-run-json
 
 install:
 	cp -n .env.example .env || true
@@ -25,6 +25,9 @@ down:
 
 init-db:
 	docker compose exec -T db sh -lc 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f /docker-entrypoint-initdb.d/01_init_schema.sql'
+
+init-analytics:
+	docker compose exec -T db sh -lc 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f /docker-entrypoint-initdb.d/03_analytics_views.sql'
 
 seed-db:
 	docker compose exec -T db sh -lc 'psql -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f /docker-entrypoint-initdb.d/02_seed_data.sql'
