@@ -1,16 +1,15 @@
 # IT Skills Radar
 
-`IT Skills Radar` — portfolio-проект для российского рынка вакансий в data/product-направлениях. Цель сервиса — собирать вакансии, хранить их в PostgreSQL, нормализовывать навыки и затем строить аналитику по спросу на навыки, различиям между ролями и salary premium.
+`IT Skills Radar` is a portfolio project for vacancy analytics in data and product roles.
 
-Сейчас в репозитории реализованы:
-- FastAPI backend с `/health`
-- Streamlit dashboard-заглушка
-- PostgreSQL в Docker Compose
-- стартовая схема данных под вакансии и навыки
-- seed-данные для локальной проверки
-- базовые тесты и документация
+The project now includes:
+- PostgreSQL storage for normalized vacancies, roles, skills and salaries
+- ingestion pipeline from prepared JSON and CSV files
+- analytics views for top skills, trends, role comparison and salary premium
+- FastAPI endpoints over the analytics layer
+- Streamlit dashboard connected to the API
 
-## Структура проекта
+## Project structure
 
 ```text
 .
@@ -23,11 +22,12 @@
 │   ├── services
 │   └── main.py
 ├── dashboard
+├── data
+│   └── samples
 ├── docs
 ├── sql
 ├── tests
 ├── .env.example
-├── .gitignore
 ├── Dockerfile
 ├── Makefile
 ├── docker-compose.yml
@@ -35,91 +35,140 @@
 └── requirements.txt
 ```
 
-## Быстрый старт
+## What is precomputed vs. what comes from API
 
-### Вариант 1: локально
+Precomputed in PostgreSQL views:
+- top skills by role
+- monthly skills trend
+- salary premium by skill
+- role skill distribution
+- junior and intern overview
 
-1. Создать `.env`:
+Returned by FastAPI:
+- filtered rows from those precomputed views
+- roles list for UI filters
+- health check
 
-```bash
-cp .env.example .env
+Rendered in Streamlit:
+- role and seniority filters
+- top skills table
+- skill trend chart
+- salary premium block
+- junior summary block
+
+## Quick start with Docker
+
+### 1. Create `.env`
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
-2. Установить зависимости:
+### 2. Start services
 
-```bash
-make install
+```powershell
+docker compose up --build -d
 ```
 
-3. Запустить API:
+### 3. Apply schema, analytics views and seed
 
-```bash
-make run-api
+```powershell
+make init-db
+make init-analytics
+make seed-db
 ```
 
-4. В другом терминале запустить dashboard:
+### 4. Run ingestion
 
-```bash
-make run-dashboard
+Dry-run:
+
+```powershell
+docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual --dry-run
 ```
 
-5. Прогнать тесты:
+Load JSON:
 
-```bash
-make test
+```powershell
+docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual
 ```
 
-### Вариант 2: через Docker Compose
+Load CSV:
 
-```bash
-cp .env.example .env
-make up
+```powershell
+docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.csv --source manual
 ```
 
-При первом запуске Postgres автоматически применит SQL из папки `sql/`.
+### 5. Open services
 
-Доступные сервисы:
 - API: [http://localhost:8000](http://localhost:8000)
 - Swagger: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Dashboard: [http://localhost:8501](http://localhost:8501)
 
-Остановить сервисы:
+## Local run without Docker
 
-```bash
-make down
+### 1. Install dependencies
+
+```powershell
+py -3 -m pip install -r requirements.txt
 ```
 
-## Ручная инициализация БД
+### 2. Start API
 
-Если контейнер БД уже был создан раньше и нужно повторно применить схему или сиды:
-
-```bash
-make init-db
-make seed-db
+```powershell
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## Текущий scope
+### 3. Start dashboard
 
-Уже сделано:
-- каркас репозитория
-- конфигурация приложения
-- backend entrypoint
-- dashboard-заглушка
-- dockerized local environment
-- слой хранения для вакансий, ролей, навыков и зарплат
-- документация по архитектуре и data dictionary
+```powershell
+streamlit run dashboard/app.py
+```
 
-Пока не сделано:
-- ingestion вакансий
-- миграции
-- очистка и нормализация raw-данных
-- аналитические витрины и агрегаты
-- графики и API аналитики
+## API endpoints
 
-## Следующий этап
+- `GET /health`
+- `GET /roles`
+- `GET /skills/top`
+- `GET /skills/trends`
+- `GET /salary/premium`
+- `GET /overview/junior`
 
-Следующим логичным шагом будет ingestion:
-- выбрать 1-2 источника вакансий по РФ-рынку
-- сохранять raw payload в БД
-- выделять и нормализовывать поля вакансии
-- начать загружать навыки и привязывать их к вакансиям
+## Demo scenario
+
+One simple project demo flow:
+
+1. Open the dashboard.
+2. Select `Data Scientist` or `Product Analyst`.
+3. Filter to `junior` and `intern`.
+4. Show the top skills block and explain the share metric.
+5. Show the trend chart for one selected skill such as `Python` or `SQL`.
+6. Show the salary premium block and explain that it compares median salary with and without the skill.
+7. Close with the junior overview table to show market snapshot for entry-level roles.
+
+## Useful commands
+
+```powershell
+make test
+make ingest-json
+make ingest-csv
+make dry-run-json
+docker compose down
+```
+
+## Current scope
+
+Already implemented:
+- storage model
+- ingestion pipeline
+- analytics views
+- API layer
+- dashboard MVP
+
+Not implemented yet:
+- production-grade scheduling
+- richer source connectors
+- auth
+- final UI polish
+- CI refinement

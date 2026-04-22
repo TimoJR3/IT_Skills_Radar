@@ -64,6 +64,19 @@ class AnalyticsService:
     def __init__(self, db_engine: Engine | Any | None = None) -> None:
         self.engine = db_engine or get_default_engine()
 
+    def get_roles(self) -> list[dict[str, Any]]:
+        from sqlalchemy import text
+
+        query = text(
+            """
+            SELECT role_code, role_name
+            FROM roles
+            ORDER BY role_name
+            """
+        )
+        with self.engine.begin() as connection:
+            return _rows_to_dicts(connection.execute(query))
+
     def get_top_skills_by_role(
         self,
         role_code: str | None = None,
