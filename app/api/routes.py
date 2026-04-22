@@ -24,33 +24,56 @@ def _safe_call(operation: str, func: Callable[[], list[dict[str, Any]]]) -> list
     try:
         return func()
     except RuntimeError as exc:
-        raise HTTPException(status_code=503, detail=f"{operation} is unavailable: {exc}") from exc
+        raise HTTPException(
+            status_code=503,
+            detail=f"Сервис аналитики недоступен для операции '{operation}': {exc}",
+        ) from exc
     except Exception as exc:  # pragma: no cover
-        raise HTTPException(status_code=500, detail=f"Failed to load {operation}.") from exc
+        raise HTTPException(
+            status_code=500,
+            detail=f"Не удалось получить данные для операции '{operation}'.",
+        ) from exc
 
 
-@router.get("/health", response_model=HealthResponse, tags=["health"])
+@router.get(
+    "/health",
+    response_model=HealthResponse,
+    tags=["health"],
+    summary="Проверка доступности сервиса",
+)
 def healthcheck() -> HealthResponse:
     return HealthResponse(status="ok")
 
 
-@router.get("/roles", response_model=list[RoleItem], tags=["analytics"])
+@router.get(
+    "/roles",
+    response_model=list[RoleItem],
+    tags=["analytics"],
+    summary="Список ролей",
+    description="Возвращает список нормализованных ролей для фильтров UI.",
+)
 def get_roles(
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> list[RoleItem]:
-    result = _safe_call("roles", analytics_service.get_roles)
+    result = _safe_call("список ролей", analytics_service.get_roles)
     return [RoleItem(**item) for item in result]
 
 
-@router.get("/skills/top", response_model=list[TopSkillItem], tags=["analytics"])
+@router.get(
+    "/skills/top",
+    response_model=list[TopSkillItem],
+    tags=["analytics"],
+    summary="Топ навыков по роли",
+    description="Возвращает самые частые навыки по выбранной роли и уровню.",
+)
 def get_top_skills(
-    role_code: str | None = None,
-    seniority_levels: list[str] | None = Query(default=None),
-    rank_limit: int = Query(default=10, ge=1, le=30),
+    role_code: str | None = Query(default=None, description="Код роли, например data_scientist"),
+    seniority_levels: list[str] | None = Query(default=None, description="Список уровней seniority"),
+    rank_limit: int = Query(default=10, ge=1, le=30, description="Максимум строк в выдаче"),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> list[TopSkillItem]:
     result = _safe_call(
-        "top skills",
+        "топ навыков",
         lambda: analytics_service.get_top_skills_by_role(
             role_code=role_code,
             seniority_levels=seniority_levels,
@@ -60,15 +83,21 @@ def get_top_skills(
     return [TopSkillItem(**item) for item in result]
 
 
-@router.get("/skills/trends", response_model=list[SkillTrendItem], tags=["analytics"])
+@router.get(
+    "/skills/trends",
+    response_model=list[SkillTrendItem],
+    tags=["analytics"],
+    summary="Динамика навыков по месяцам",
+    description="Возвращает помесячную динамику упоминаний навыка.",
+)
 def get_skill_trends(
-    skill_slug: str | None = None,
-    role_code: str | None = None,
-    seniority_levels: list[str] | None = Query(default=None),
+    skill_slug: str | None = Query(default=None, description="Slug навыка, например python"),
+    role_code: str | None = Query(default=None, description="Код роли"),
+    seniority_levels: list[str] | None = Query(default=None, description="Список уровней seniority"),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> list[SkillTrendItem]:
     result = _safe_call(
-        "skill trends",
+        "динамика навыков",
         lambda: analytics_service.get_skills_trend_monthly(
             skill_slug=skill_slug,
             role_code=role_code,
@@ -78,15 +107,21 @@ def get_skill_trends(
     return [SkillTrendItem(**item) for item in result]
 
 
-@router.get("/salary/premium", response_model=list[SalaryPremiumItem], tags=["analytics"])
+@router.get(
+    "/salary/premium",
+    response_model=list[SalaryPremiumItem],
+    tags=["analytics"],
+    summary="Премия к зарплате по навыкам",
+    description="Сравнивает медианную зарплату вакансий с навыком и без навыка.",
+)
 def get_salary_premium(
-    skill_slug: str | None = None,
-    role_code: str | None = None,
-    seniority_levels: list[str] | None = Query(default=None),
+    skill_slug: str | None = Query(default=None, description="Slug навыка"),
+    role_code: str | None = Query(default=None, description="Код роли"),
+    seniority_levels: list[str] | None = Query(default=None, description="Список уровней seniority"),
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> list[SalaryPremiumItem]:
     result = _safe_call(
-        "salary premium",
+        "премия к зарплате",
         lambda: analytics_service.get_skill_salary_premium(
             skill_slug=skill_slug,
             role_code=role_code,
@@ -96,9 +131,15 @@ def get_salary_premium(
     return [SalaryPremiumItem(**item) for item in result]
 
 
-@router.get("/overview/junior", response_model=list[JuniorOverviewItem], tags=["analytics"])
+@router.get(
+    "/overview/junior",
+    response_model=list[JuniorOverviewItem],
+    tags=["analytics"],
+    summary="Обзор junior и intern ролей",
+    description="Возвращает краткий срез по entry-level ролям и зарплатам.",
+)
 def get_junior_overview(
     analytics_service: AnalyticsService = Depends(get_analytics_service),
 ) -> list[JuniorOverviewItem]:
-    result = _safe_call("junior overview", analytics_service.get_junior_roles_overview)
+    result = _safe_call("обзор junior ролей", analytics_service.get_junior_roles_overview)
     return [JuniorOverviewItem(**item) for item in result]

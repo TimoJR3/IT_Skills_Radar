@@ -1,294 +1,228 @@
-# Data Dictionary
+# Словарь данных
 
-## Design idea
+## Общая идея
 
-The storage layer is split into two parts:
-- curated entities for analytics: `roles`, `skills`, `vacancies`, `vacancy_skills`, `salary_info`
-- raw traceability layer: `raw_source_metadata`
+Схема разделена на два слоя:
+- нормализованный аналитический слой: `roles`, `skills`, `vacancies`, `vacancy_skills`, `salary_info`;
+- raw-слой для трассировки источника: `raw_source_metadata`.
 
-This is a practical middle ground for a portfolio project. The analytics layer stays clean enough for SQL queries and API responses, while the raw layer preserves the original payload for debugging and future parsers.
+Такой дизайн помогает одновременно:
+- строить понятные аналитические запросы;
+- не терять исходный payload вакансии;
+- безопасно развивать ingestion и правила нормализации.
 
-## ER logic in plain words
+## ER-логика простыми словами
 
-- One normalized role can map to many vacancies.
-- One vacancy can have zero or one salary record.
-- One vacancy can contain many skills, and one skill can appear in many vacancies.
-- One vacancy can have zero or one raw metadata record with the original payload from the source.
+- одна нормализованная роль связана со многими вакансиями;
+- одна вакансия может иметь ноль или одну запись о зарплате;
+- одна вакансия может содержать много навыков, и один навык может встречаться во многих вакансиях;
+- одна вакансия может иметь ноль или одну запись с raw metadata.
 
-## Tables
+## Таблицы
 
 ### `roles`
 
-Normalized reference table for target job roles.
+Справочник нормализованных ролей.
 
-| Column | Type | Description |
+| Поле | Тип | Описание |
 |---|---|---|
-| `id` | `bigserial` | Primary key |
-| `role_code` | `text` | Stable machine-friendly code such as `data_scientist` |
-| `role_name` | `text` | Canonical display name |
-| `role_group` | `text` | Broad family: `data`, `analytics`, `product`, `ml` |
-| `created_at` | `timestamptz` | Technical creation timestamp |
+| `id` | `bigserial` | Первичный ключ |
+| `role_code` | `text` | Стабильный машинный код, например `data_scientist` |
+| `role_name` | `text` | Каноническое отображаемое имя |
+| `role_group` | `text` | Группа роли: `data`, `analytics`, `product`, `ml` |
+| `created_at` | `timestamptz` | Время создания записи |
 
-Why it exists:
-- avoids mixing many title variants directly in analytics
-- lets you aggregate `Junior Data Scientist`, `ML Scientist`, `Product Analyst` into clearer groups later
+Зачем нужна:
+- чтобы не строить аналитику по грязным заголовкам вакансий;
+- чтобы агрегировать похожие названия в одну роль.
 
 ### `skills`
 
-Normalized dictionary of skills.
+Справочник нормализованных навыков.
 
-| Column | Type | Description |
+| Поле | Тип | Описание |
 |---|---|---|
-| `id` | `bigserial` | Primary key |
-| `skill_name` | `text` | Canonical skill name such as `Python` |
-| `skill_slug` | `text` | Lowercase stable identifier such as `python` |
-| `skill_category` | `text` | Optional grouping such as `database`, `ml`, `bi` |
-| `is_active` | `boolean` | Whether the skill is active in the dictionary |
-| `created_at` | `timestamptz` | Technical creation timestamp |
+| `id` | `bigserial` | Первичный ключ |
+| `skill_name` | `text` | Каноническое имя навыка, например `Python` |
+| `skill_slug` | `text` | Стабильный slug, например `python` |
+| `skill_category` | `text` | Категория навыка |
+| `is_active` | `boolean` | Активен ли навык в словаре |
+| `created_at` | `timestamptz` | Время создания записи |
 
-Why it exists:
-- skills need a reusable canonical layer for joins, deduplication and API output
-- `skill_slug` is stable even if display text changes
+Зачем нужна:
+- чтобы переиспользовать навык в разных вакансиях;
+- чтобы удобно делать join и агрегаты.
 
 ### `vacancies`
 
-Main fact table with one row per normalized vacancy.
+Главная факт-таблица проекта: одна строка соответствует одной нормализованной вакансии.
 
-| Column | Type | Description |
+| Поле | Тип | Описание |
 |---|---|---|
-| `id` | `bigserial` | Primary key |
-| `source_name` | `text` | Source system such as `hh_ru` |
-| `source_vacancy_id` | `text` | Vacancy identifier from the source |
-| `role_id` | `bigint` | FK to `roles.id` |
-| `title` | `text` | Vacancy title from the source after light normalization |
-| `company_name` | `text` | Company name |
-| `city` | `text` | City |
-| `country` | `text` | Country |
+| `id` | `bigserial` | Первичный ключ |
+| `source_name` | `text` | Источник вакансии |
+| `source_vacancy_id` | `text` | ID вакансии в источнике |
+| `role_id` | `bigint` | FK на `roles.id` |
+| `title` | `text` | Заголовок вакансии |
+| `company_name` | `text` | Название компании |
+| `city` | `text` | Город |
+| `country` | `text` | Страна |
 | `seniority_level` | `text` | `intern`, `junior`, `middle`, `senior`, `lead`, `unknown` |
-| `employment_type` | `text` | `full_time`, `part_time`, `internship`, `contract`, `project`, `unknown` |
-| `work_format` | `text` | `office`, `remote`, `hybrid`, `unknown` |
-| `description_text` | `text` | Vacancy description text |
-| `vacancy_url` | `text` | Original public URL |
-| `published_at` | `timestamptz` | When the vacancy was published at the source |
-| `collected_at` | `timestamptz` | When your pipeline collected the vacancy |
-| `is_active` | `boolean` | Whether the vacancy is currently active in your store |
-| `created_at` | `timestamptz` | Technical creation timestamp |
-| `updated_at` | `timestamptz` | Technical update timestamp |
+| `employment_type` | `text` | Тип занятости |
+| `work_format` | `text` | Формат работы |
+| `description_text` | `text` | Описание вакансии |
+| `vacancy_url` | `text` | Ссылка на оригинал |
+| `published_at` | `timestamptz` | Когда вакансия опубликована |
+| `collected_at` | `timestamptz` | Когда вакансия собрана системой |
+| `is_active` | `boolean` | Активна ли вакансия |
+| `created_at` | `timestamptz` | Время создания записи |
+| `updated_at` | `timestamptz` | Время обновления записи |
 
-Why it exists:
-- this is the central entity for analytics
-- it keeps both business attributes and time fields needed for trend analysis
-- `published_at` is for market dynamics, `collected_at` is for pipeline lineage
+Зачем нужна:
+- это центральная сущность для аналитики;
+- в ней хранятся и бизнес-поля, и временные признаки.
 
 ### `salary_info`
 
-Optional 1:1 table for salary data.
+Отдельная таблица зарплат в формате 1:1 с вакансией.
 
-| Column | Type | Description |
+| Поле | Тип | Описание |
 |---|---|---|
-| `vacancy_id` | `bigint` | PK and FK to `vacancies.id` |
-| `salary_from` | `numeric(12,2)` | Lower bound |
-| `salary_to` | `numeric(12,2)` | Upper bound |
-| `salary_mid` | `numeric(12,2)` | Generated midpoint for analytics |
-| `currency_code` | `char(3)` | `RUB`, `USD`, `EUR` |
+| `vacancy_id` | `bigint` | PK и FK на `vacancies.id` |
+| `salary_from` | `numeric(12,2)` | Нижняя граница зарплаты |
+| `salary_to` | `numeric(12,2)` | Верхняя граница зарплаты |
+| `salary_mid` | `numeric(12,2)` | Автоматически рассчитанная середина диапазона |
+| `currency_code` | `char(3)` | Валюта |
 | `gross_type` | `text` | `gross`, `net`, `unknown` |
 | `salary_period` | `text` | `month`, `year`, `project`, `unknown` |
-| `salary_comment` | `text` | Free-text comment |
-| `created_at` | `timestamptz` | Technical creation timestamp |
+| `salary_comment` | `text` | Текстовый комментарий |
+| `created_at` | `timestamptz` | Время создания записи |
 
-Why salary is separated:
-- many vacancies have no salary
-- salary analytics should work only on valid salary rows
-- this keeps the vacancy table simpler and avoids sparse columns
+Почему вынесена отдельно:
+- зарплата есть не у всех вакансий;
+- так проще считать salary premium и фильтровать только сопоставимые записи.
 
 ### `vacancy_skills`
 
-Bridge table for many-to-many relation between vacancies and skills.
+Связующая таблица many-to-many между вакансиями и навыками.
 
-| Column | Type | Description |
+| Поле | Тип | Описание |
 |---|---|---|
-| `vacancy_id` | `bigint` | FK to `vacancies.id` |
-| `skill_id` | `bigint` | FK to `skills.id` |
-| `is_required` | `boolean` | Whether the skill looks required rather than optional |
-| `match_source` | `text` | How the skill was matched: `title`, `description`, `manual`, `llm`, `regex` |
-| `created_at` | `timestamptz` | Technical creation timestamp |
+| `vacancy_id` | `bigint` | FK на `vacancies.id` |
+| `skill_id` | `bigint` | FK на `skills.id` |
+| `is_required` | `boolean` | Насколько навык обязателен |
+| `match_source` | `text` | Откуда найден навык |
+| `created_at` | `timestamptz` | Время создания записи |
 
-Primary key:
+Первичный ключ:
 - `(vacancy_id, skill_id)`
 
-Why it exists:
-- top skills and salary premium both depend on a clean many-to-many join
-- this table is the core bridge for all skill-level analytics
+Зачем нужна:
+- это центральный мост для skill analytics;
+- без нее нельзя нормально считать топ навыков и salary premium.
 
 ### `raw_source_metadata`
 
-Optional raw payload and parser trace for each vacancy.
+Таблица для raw payload и технической информации о сборе.
 
-| Column | Type | Description |
+| Поле | Тип | Описание |
 |---|---|---|
-| `id` | `bigserial` | Primary key |
-| `vacancy_id` | `bigint` | Unique FK to `vacancies.id` |
-| `source_name` | `text` | Source system |
-| `source_url` | `text` | Raw source URL |
-| `source_payload` | `jsonb` | Original payload or a compact snapshot |
-| `parser_version` | `text` | Parser version |
-| `http_status` | `integer` | HTTP status from collection |
-| `checksum` | `text` | Payload checksum for dedup/debug |
-| `collected_at` | `timestamptz` | Collection timestamp from the raw layer |
-| `created_at` | `timestamptz` | Technical creation timestamp |
+| `id` | `bigserial` | Первичный ключ |
+| `vacancy_id` | `bigint` | Уникальный FK на `vacancies.id` |
+| `source_name` | `text` | Источник данных |
+| `source_url` | `text` | URL источника |
+| `source_payload` | `jsonb` | Исходный JSON или снимок payload |
+| `parser_version` | `text` | Версия парсера |
+| `http_status` | `integer` | HTTP status при сборе |
+| `checksum` | `text` | Хэш payload |
+| `collected_at` | `timestamptz` | Время сбора |
+| `created_at` | `timestamptz` | Время создания записи |
 
-Why it exists:
-- lets you debug parsing without cluttering analytics tables
-- supports reprocessing and future ingestion work
+Зачем нужна:
+- помогает отлаживать ingestion;
+- сохраняет исходные данные отдельно от cleaned/final слоя.
 
-## Relationships
+## Связи
 
 - `roles 1 -> N vacancies`
 - `vacancies 1 -> 0..1 salary_info`
-- `vacancies N <-> N skills` through `vacancy_skills`
+- `vacancies N <-> N skills` через `vacancy_skills`
 - `vacancies 1 -> 0..1 raw_source_metadata`
 
-## Constraints and integrity rules
+## Ограничения целостности
 
-The schema intentionally uses simple but useful constraints:
+Схема использует простые, но полезные ограничения:
 
-- `UNIQUE (source_name, source_vacancy_id)` prevents duplicate source records.
-- Role codes and skill slugs are unique and machine-friendly.
-- Enumerated `CHECK` constraints keep `seniority_level`, `work_format`, `employment_type`, `gross_type` and other controlled values consistent.
-- Salary checks enforce non-negative amounts and valid ranges.
-- `published_at <= collected_at` prevents impossible time sequences.
-- Foreign keys keep roles, skills and salary rows attached to valid vacancies.
-- URL checks reject obviously malformed links.
+- `UNIQUE (source_name, source_vacancy_id)` защищает от дублей из одного источника;
+- `CHECK`-ограничения фиксируют допустимые значения для `seniority_level`, `work_format`, `employment_type`, `gross_type` и других справочных полей;
+- проверки зарплаты запрещают отрицательные значения и некорректные диапазоны;
+- `published_at <= collected_at` защищает от невозможной временной последовательности;
+- внешние ключи обеспечивают корректные связи между ролями, навыками, вакансиями и зарплатами.
 
-## Indexes and why they matter
+## Индексы и зачем они нужны
 
 ### `idx_vacancies_role_seniority_published_at`
 
-Supports filtering by normalized role and seniority with time ordering.
-
-Useful for:
-- junior data scientist vacancies
-- product analyst trends over time
+Полезен для фильтрации по роли, уровню и времени.
 
 ### `idx_vacancies_published_at`
 
-Supports time-series scans and month-based aggregations.
-
-Useful for:
-- skill dynamics by month
-- recent vacancies dashboards
+Полезен для time-series запросов и помесячных агрегатов.
 
 ### `idx_vacancies_collected_at`
 
-Useful for operational queries around ingestion freshness.
+Полезен для технической проверки свежести ingestion.
 
 ### `idx_vacancies_country_city`
 
-Supports location filters without creating a more complex location model.
+Полезен для фильтров по локации.
 
 ### `idx_vacancies_is_active`
 
-Partial index for the common case when only active vacancies matter.
+Partial index для частого случая, когда нужны только активные вакансии.
 
 ### `idx_salary_info_currency_period_mid`
 
-Helps salary analysis over comparable salaries.
-
-Useful for:
-- salary premium by skill within `RUB` and `month`
-- filtering rows with actual salary values
+Нужен для salary analytics по сопоставимым зарплатам.
 
 ### `idx_vacancy_skills_skill_id_vacancy_id`
 
-Essential for skill-centric aggregation.
-
-Useful for:
-- top skills
-- salary premium by skill
+Главный индекс для skill-centric агрегатов.
 
 ### `idx_vacancy_skills_vacancy_id_required`
 
-Useful when you need to fetch all skills for a vacancy or focus on required skills only.
+Полезен, когда нужно быстро получить навыки вакансии или долю required навыков.
 
 ### `idx_skills_category`
 
-Supports optional grouping by skill category in dashboards.
+Позволяет быстро группировать навыки по категориям.
 
 ### `idx_raw_source_metadata_checksum`
 
-Useful for deduplication checks in future ingestion.
+Полезен для дедупликации и технической отладки.
 
 ### `idx_raw_source_metadata_payload_gin`
 
-Lets you inspect JSON payload fields efficiently if debugging raw data.
+Позволяет искать по полям внутри JSON payload.
 
-## What analytics this schema supports
+## Какие аналитические задачи поддерживает схема
 
-This model directly supports:
+Эта модель уже хорошо подходит для:
+- топа навыков по роли;
+- динамики навыков по месяцам;
+- сравнения ролей между собой;
+- salary premium по навыкам;
+- фильтрации по `intern`, `junior`, `middle`, `senior`;
+- фильтрации по локации, источнику и формату работы.
 
-- top skills by role
-- top required skills by role
-- skill demand dynamics by month using `published_at`
-- comparisons between `data scientist`, `data analyst`, `product analyst`
-- salary premium by skill using `salary_mid`
-- filtering by `intern`, `junior`, `middle`, `senior`
-- filtering by city, country, work format and source
+## Как объяснить на собеседовании
 
-## Example query patterns
+Короткая версия:
 
-Top skills by normalized role:
+1. `vacancies` — это главная факт-таблица.
+2. `roles` и `skills` — нормализованные справочники.
+3. `vacancy_skills` связывает вакансии и навыки.
+4. `salary_info` отделена, потому что зарплата опциональна.
+5. `raw_source_metadata` сохраняет исходный payload и не смешивает raw со cleaned/final слоем.
 
-```sql
-SELECT
-    r.role_name,
-    s.skill_name,
-    COUNT(*) AS vacancy_count
-FROM vacancies v
-JOIN roles r ON r.id = v.role_id
-JOIN vacancy_skills vs ON vs.vacancy_id = v.id
-JOIN skills s ON s.id = vs.skill_id
-GROUP BY r.role_name, s.skill_name
-ORDER BY r.role_name, vacancy_count DESC;
-```
-
-Monthly skill dynamics:
-
-```sql
-SELECT
-    DATE_TRUNC('month', v.published_at) AS month,
-    s.skill_name,
-    COUNT(*) AS mentions
-FROM vacancies v
-JOIN vacancy_skills vs ON vs.vacancy_id = v.id
-JOIN skills s ON s.id = vs.skill_id
-WHERE v.published_at IS NOT NULL
-GROUP BY month, s.skill_name
-ORDER BY month, mentions DESC;
-```
-
-Salary premium by skill:
-
-```sql
-SELECT
-    s.skill_name,
-    AVG(si.salary_mid) AS avg_salary_mid
-FROM salary_info si
-JOIN vacancy_skills vs ON vs.vacancy_id = si.vacancy_id
-JOIN skills s ON s.id = vs.skill_id
-WHERE si.currency_code = 'RUB'
-  AND si.salary_period = 'month'
-GROUP BY s.skill_name
-ORDER BY avg_salary_mid DESC;
-```
-
-## How to explain this in an interview
-
-Use a short story:
-
-1. `vacancies` is the main fact table.
-2. `roles` and `skills` are normalized dictionaries for stable analytics dimensions.
-3. `vacancy_skills` handles the many-to-many relation needed for skill analytics.
-4. `salary_info` is split out because salary is optional and should stay analytically clean.
-5. `raw_source_metadata` preserves source payloads for debugging and future ingestion work.
-
-The key point is that the model is intentionally simple, but already shaped around real product questions: what skills are demanded, how demand changes over time, and whether some skills are associated with higher salaries.
+Главная мысль: модель достаточно простая, чтобы ее быстро объяснить, и достаточно практичная, чтобы строить на ней ingestion, API и dashboard.

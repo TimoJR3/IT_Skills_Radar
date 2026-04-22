@@ -1,111 +1,110 @@
-# Ingestion Decisions
+# Решения по ingestion и нормализации
 
-## Goal
+## Цель
 
-This stage adds a simple ingestion pipeline that is easy to explain in a portfolio interview:
-- read prepared vacancy data from local JSON or CSV
-- validate required fields
-- clean messy text
-- normalize roles and skills with rule-based logic
-- save raw payloads and cleaned final entities into PostgreSQL
+На этом этапе проект получил простой ingestion pipeline, который легко объяснить на собеседовании:
+- читать подготовленные вакансии из JSON и CSV;
+- валидировать обязательные поля;
+- очищать текст;
+- нормализовать роли и навыки без тяжелого NLP;
+- сохранять raw и final слой в PostgreSQL.
 
-## Layer boundaries
+## Границы слоев
 
 ### Raw layer
 
-The raw layer is `raw_source_metadata`.
+Raw layer — это таблица `raw_source_metadata`.
 
-What goes there:
-- original source payload from JSON or CSV
-- checksum of the payload
-- parser version
-- collection timestamp
+Туда попадает:
+- исходный payload записи;
+- checksum;
+- версия парсера;
+- техническое время сбора.
 
-Why it exists:
-- keeps traceability
-- helps debugging
-- lets you improve normalization later without losing the original input
+Зачем:
+- для трассировки;
+- для отладки ingestion;
+- для безопасного развития правил нормализации.
 
 ### Cleaned layer
 
-The cleaned layer is created in Python during ingestion before writing to the database.
+Cleaned layer пока живет в Python-коде во время ingestion.
 
-What happens there:
-- required field validation
-- whitespace cleanup
-- HTML tag removal
-- date parsing
-- salary parsing
-- normalization of role, seniority, work format and skills
+Что в нем происходит:
+- проверка обязательных полей;
+- очистка пробелов и HTML;
+- парсинг дат;
+- парсинг зарплат;
+- нормализация роли, seniority, формата работы и навыков.
 
-Why it is not stored as a separate table yet:
-- for this portfolio version it is enough to keep the transformation logic in code
-- the final normalized tables already represent the cleaned business-ready layer
+Почему нет отдельной cleaned-таблицы:
+- для portfolio-версии это было бы лишним усложнением;
+- итоговые нормализованные таблицы уже дают business-ready слой.
 
 ### Final layer
 
-The final layer is stored in:
+Final layer хранится в:
 - `vacancies`
 - `roles`
 - `skills`
 - `vacancy_skills`
 - `salary_info`
 
-This is the layer used later for analytics and API responses.
+Именно этот слой потом используется для аналитики, API и dashboard.
 
-## Validation rules
+## Валидация
 
-Required fields for the first version:
+Обязательные поля первой версии:
 - `source_vacancy_id`
 - `title`
 - `company_name`
 
-If one of these fields is missing, the row is skipped and reported in the ingestion summary.
+Если одно из этих полей отсутствует, запись пропускается и попадает в итоговый summary ingestion.
 
-Why only these fields:
-- they are enough to identify and store a vacancy
-- the first version should stay simple and not reject too much useful data
+Почему именно так:
+- этих полей достаточно, чтобы идентифицировать и сохранить вакансию;
+- первая версия не должна отбрасывать слишком много полезных записей.
 
-## Text cleaning rules
+## Очистка текста
 
-Text cleaning is intentionally lightweight:
-- HTML tags are removed
-- HTML entities are unescaped
-- repeated spaces are collapsed
-- empty strings become `None`
+Очистка deliberately lightweight:
+- удаляются HTML-теги;
+- разворачиваются HTML entities;
+- схлопываются повторяющиеся пробелы;
+- пустые строки становятся `None`.
 
-This handles the most common noise without building a heavy NLP layer.
+Этого достаточно для первой версии без тяжелой NLP-обработки.
 
-## Role normalization rules
+## Нормализация ролей
 
-Role normalization is rule-based and title-driven.
+Нормализация ролей rule-based и опирается в первую очередь на title.
 
-Current canonical roles:
+Канонические роли:
 - `data_scientist`
 - `data_analyst`
 - `product_analyst`
 - `ml_engineer`
 - `other_data_role`
 
-Examples:
-- `Junior Data Scientist / ML` -> role `data_scientist`, seniority `junior`
-- `Product Analyst (AB tests / BI)` -> role `product_analyst`
-- `ML Engineer` -> role `ml_engineer`
-- unknown but adjacent data titles -> `other_data_role`
+Примеры:
+- `Junior Data Scientist / ML` -> `data_scientist`, seniority `junior`
+- `Product Analyst (AB tests / BI)` -> `product_analyst`
+- `ML Engineer` -> `ml_engineer`
+- неочевидные смежные роли -> `other_data_role`
 
-Why this approach:
-- it is understandable
-- it is deterministic
-- it is easy to extend with a few more rules later
+Почему так:
+- легко понять и объяснить;
+- поведение детерминировано;
+- словарь правил легко расширять дальше.
 
-## Skill normalization rules
+## Нормализация навыков
 
-Skill normalization is also rule-based and combines:
-- structured skills field if present
-- vacancy title
-- vacancy description
+Навыки тоже нормализуются rule-based и берутся из:
+- структурированного поля `skills`, если оно есть;
+- заголовка вакансии;
+- текста описания.
 
-Current canonical examples:
+Примеры канонизации:
 - `PostgreSQL`, `Postgres` -> `postgresql`
 - `SQL` -> `sql`
 - `scikit-learn`, `sklearn` -> `scikit-learn`
@@ -113,50 +112,48 @@ Current canonical examples:
 - `machine learning`, `ML` -> `machine_learning`
 - `visualization`, `dashboard`, `Power BI`, `Tableau`, `BI` -> `bi`
 
-Design choice:
-- generic `SQL` stays separate from `PostgreSQL`
-- structured skill fields are marked as more trusted than regex matches from descriptions
+Отдельное решение:
+- `SQL` и `PostgreSQL` не сливаются в один и тот же навык;
+- structured skill list считается более надежным сигналом, чем regex в описании.
 
-## Salary rules
+## Работа с зарплатой
 
-Salary is optional.
+Зарплата опциональна.
 
-Rules:
-- if both bounds are missing, no row is created in `salary_info`
-- if at least one bound exists, salary is stored
-- `RUR` is normalized to `RUB`
-- salary period defaults to `month`
+Правила:
+- если обе границы пустые, строка в `salary_info` не создается;
+- если есть хотя бы одна граница, зарплата сохраняется;
+- `RUR` приводится к `RUB`;
+- период по умолчанию считается `month`.
 
-## Upsert strategy
+## Upsert-стратегия
 
-The pipeline uses upserts for:
-- roles
-- skills
-- vacancies
-- salary rows
-- raw metadata
+Pipeline использует upsert для:
+- ролей;
+- навыков;
+- вакансий;
+- зарплат;
+- raw metadata.
 
-Why:
-- repeated runs should be idempotent
-- the same prepared source can be reloaded after normalization changes
+Почему:
+- pipeline можно гонять повторно;
+- удобно перезагружать данные после изменения правил нормализации.
 
-For `vacancy_skills`, the current set is replaced on each run for the vacancy.
+Для `vacancy_skills` связи навыков у вакансии пересобираются заново при каждом обновлении.
 
-## Why this version is practical
+## Почему это практично для portfolio
 
-This is not a production ingestion system yet, but it shows the right engineering habits:
-- separate raw and normalized storage concerns
-- deterministic normalization
-- clear validation rules
-- idempotent writes
-- tests around the most failure-prone logic
+Это еще не production ingestion system, но уже показывает хорошие инженерные привычки:
+- разделение raw и final слоя;
+- прозрачные правила нормализации;
+- идемпотентная загрузка;
+- тестируемая логика;
+- понятные ограничения первой версии.
 
-## Known limitations
+## Ограничения первой версии
 
-- no external API connectors yet
-- no fuzzy matching for complex role titles
-- no multilingual stemming or heavy NLP
-- no audit table for rejected rows
-- cleaned intermediate layer lives in Python, not as a dedicated database table
-
-These limitations are acceptable for the first ingestion version and leave clear next steps for future iterations.
+- нет прямых внешних API-коннекторов;
+- нет fuzzy matching для сложных title;
+- нет мультиязычного stemming;
+- нет отдельной audit-таблицы для rejected rows;
+- cleaned intermediate слой пока существует только в Python, а не в отдельной таблице.

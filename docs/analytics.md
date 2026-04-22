@@ -1,26 +1,26 @@
-# Analytics Layer
+# Аналитический слой
 
-## Purpose
+## Назначение
 
-This layer prepares reusable aggregates for the future API and dashboard.
+Этот слой готовит переиспользуемые агрегаты для API и dashboard.
 
-The goal is to answer a small set of practical questions:
-- which skills appear most often
-- how skill demand changes over time
-- which skills are more typical for specific roles
-- which skills are associated with higher salaries
-- what junior and intern role snapshots look like
+Он отвечает на ключевые вопросы:
+- какие навыки встречаются чаще всего;
+- как меняется спрос на навыки по времени;
+- какие навыки характерны для разных ролей;
+- какие навыки связаны с более высокой зарплатой;
+- как выглядит срез junior и intern ролей.
 
-The implementation uses PostgreSQL views in the `analytics` schema and a lightweight Python service that reads from those views.
+Реализация состоит из PostgreSQL views в схеме `analytics` и легкого Python-сервиса, который читает эти витрины.
 
-## Analytics views
+## Витрины
 
 ### `analytics.top_skills_by_role`
 
-What it shows:
-- top skills inside each role and seniority bucket
+Что показывает:
+- топ навыков внутри роли и уровня seniority.
 
-Main fields:
+Основные поля:
 - `role_code`
 - `seniority_level`
 - `skill_slug`
@@ -28,19 +28,16 @@ Main fields:
 - `vacancy_share`
 - `skill_rank`
 
-Formula in plain words:
-- `vacancy_count` = how many distinct vacancies of a role mention the skill
-- `vacancy_share` = `vacancy_count / total vacancies in the same role and seniority`
-
-How to read it:
-- if `vacancy_share = 0.60`, then 60% of vacancies in that slice mention the skill
+Формула простыми словами:
+- `vacancy_count` = сколько уникальных вакансий роли упоминают навык;
+- `vacancy_share` = `vacancy_count / общее число вакансий в той же роли и на том же уровне`.
 
 ### `analytics.skills_trend_monthly`
 
-What it shows:
-- monthly dynamics of skill mentions
+Что показывает:
+- динамику навыков по месяцам.
 
-Main fields:
+Основные поля:
 - `month_start`
 - `role_code`
 - `seniority_level`
@@ -48,20 +45,17 @@ Main fields:
 - `vacancy_count`
 - `vacancy_share`
 
-Formula in plain words:
-- month is based on `published_at`, or `collected_at` if `published_at` is missing
-- `vacancy_share` = skill mentions in the month divided by total vacancies in the same month, role and seniority
-
-How to read it:
-- this helps compare growth or decline in demand over time
+Формула:
+- месяц берется из `published_at`, а если его нет — из `collected_at`;
+- `vacancy_share` = доля вакансий месяца, где встречается навык.
 
 ### `analytics.role_skill_distribution`
 
-What it shows:
-- how a skill is distributed across roles
-- how deeply a skill penetrates each role
+Что показывает:
+- насколько навык характерен для роли;
+- какую долю общего спроса на навык дает каждая роль.
 
-Main fields:
+Основные поля:
 - `role_code`
 - `skill_slug`
 - `vacancy_count`
@@ -69,21 +63,17 @@ Main fields:
 - `role_share_of_skill`
 - `required_share`
 
-Formulas in plain words:
-- `skill_penetration_in_role` = share of vacancies in that role where the skill appears
-- `role_share_of_skill` = share of all vacancies with the skill that belongs to the role
-- `required_share` = share of matched vacancies where the skill is marked as required
-
-How to read it:
-- high `skill_penetration_in_role` means the skill is common inside the role
-- high `role_share_of_skill` means the role contributes a large part of that skill's total demand
+Формулы:
+- `skill_penetration_in_role` = доля вакансий роли, где встречается навык;
+- `role_share_of_skill` = доля всех вакансий с навыком, приходящаяся на роль;
+- `required_share` = доля вакансий, где навык отмечен как required.
 
 ### `analytics.skill_salary_premium`
 
-What it shows:
-- practical salary comparison for vacancies with a skill versus without it
+Что показывает:
+- практическое сравнение зарплаты вакансий с навыком и без навыка.
 
-Main fields:
+Основные поля:
 - `role_code`
 - `skill_slug`
 - `vacancies_with_skill`
@@ -93,23 +83,23 @@ Main fields:
 - `salary_premium_abs`
 - `salary_premium_pct`
 
-Formula in plain words:
-- only comparable salaries are used: `RUB`, `month`, and non-null `salary_mid`
-- `median_salary_with_skill` = median salary of vacancies with the skill
-- `median_salary_without_skill` = median salary of vacancies in the same role without the skill
-- `salary_premium_abs` = `with skill median - without skill median`
-- `salary_premium_pct` = `(with skill median - without skill median) / without skill median`
+Формула:
+- берутся только сопоставимые зарплаты: `RUB`, `month`, `salary_mid IS NOT NULL`;
+- `median_salary_with_skill` = медианная зарплата вакансий с навыком;
+- `median_salary_without_skill` = медианная зарплата вакансий той же роли без навыка;
+- `salary_premium_abs` = разница медиан;
+- `salary_premium_pct` = относительная разница медиан.
 
-Why median:
-- it is easier to explain than more advanced models
-- it is less sensitive to outliers than average
+Почему используется медиана:
+- ее проще объяснить;
+- она устойчивее к выбросам, чем среднее.
 
 ### `analytics.junior_roles_overview`
 
-What it shows:
-- a compact snapshot of `intern` and `junior` vacancy slices
+Что показывает:
+- компактный срез по `intern` и `junior`.
 
-Main fields:
+Основные поля:
 - `role_code`
 - `seniority_level`
 - `total_vacancies`
@@ -118,85 +108,52 @@ Main fields:
 - `median_salary_mid`
 - `average_salary_mid`
 
-Formula in plain words:
-- `salary_coverage` = share of vacancies in the slice with comparable salary data
+Формула:
+- `salary_coverage` = доля вакансий в срезе, где есть сопоставимая зарплата.
 
-## Python service
+## Python-сервис
 
-The service lives in `app/services/analytics.py`.
+Сервис находится в `app/services/analytics.py`.
 
-It provides:
+Он предоставляет:
 - `get_top_skills_by_role()`
 - `get_skills_trend_monthly()`
 - `get_skill_salary_premium()`
 - `get_role_skill_distribution()`
 - `get_junior_roles_overview()`
 
-Why this service exists:
-- future API endpoints can call it directly
-- Streamlit can reuse the same interface
-- SQL stays in views, while Python handles filters and output formatting
+Зачем нужен:
+- будущие API endpoints работают через него;
+- dashboard использует тот же интерфейс;
+- SQL остается во views, а Python занимается фильтрацией и форматированием результата.
 
-## Example checks
+## Как проверять корректность
 
-Top skills for junior data scientist roles:
+Лучший способ — делать spot checks:
 
-```sql
-SELECT *
-FROM analytics.top_skills_by_role
-WHERE role_code = 'data_scientist'
-  AND seniority_level = 'junior'
-  AND skill_rank <= 10
-ORDER BY skill_rank;
-```
+1. Выбрать одну роль и вручную посчитать, сколько вакансий содержат `SQL`.
+2. Сравнить это число с `vacancy_count` в `top_skills_by_role`.
+3. Выбрать навык и месяц и вручную сверить `skills_trend_monthly`.
+4. Сравнить исходные зарплаты с медианами в `skill_salary_premium`.
 
-Monthly trend for SQL in junior and intern roles:
+Такой подход хорошо смотрится на собеседовании, потому что показывает, что ты не воспринимаешь агрегаты как черный ящик.
 
-```sql
-SELECT *
-FROM analytics.skills_trend_monthly
-WHERE skill_slug = 'sql'
-  AND seniority_level IN ('intern', 'junior')
-ORDER BY month_start, role_code;
-```
+## Ограничения интерпретации
 
-Salary premium for Python:
+Эти метрики полезны, но они не доказывают причинно-следственную связь.
 
-```sql
-SELECT *
-FROM analytics.skill_salary_premium
-WHERE skill_slug = 'python'
-ORDER BY salary_premium_abs DESC;
-```
+Важно помнить:
+- навык может коррелировать с зарплатой просто потому, что встречается в более сильных ролях;
+- маленькая выборка делает медианы нестабильными;
+- неполные зарплатные данные вносят selection bias;
+- extraction навыков rule-based и может недоучитывать или переучитывать часть упоминаний;
+- если `published_at` отсутствует, временная динамика опирается на `collected_at`.
 
-## How to validate results
+## Портфельная история
 
-Use simple spot checks:
-
-1. Pick one role and manually count how many vacancies mention SQL.
-2. Compare that number to `vacancy_count` in `top_skills_by_role`.
-3. Pick one skill and one month and manually count matching vacancies.
-4. Compare raw salary rows with medians in `skill_salary_premium`.
-
-This is a good interview habit because it shows you do not treat aggregates as a black box.
-
-## Interpretation limits
-
-These metrics are useful, but they are not causal.
-
-Important limitations:
-- a skill may correlate with salary because it appears in stronger roles, not because the skill itself causes higher pay
-- small sample sizes can make medians unstable
-- missing salary data creates selection bias
-- skill extraction is rule-based, so some mentions will be missed or overcounted
-- `published_at` may be absent, so some trends fall back to `collected_at`
-
-## Portfolio story
-
-This analytics layer shows a good progression:
-- raw vacancy ingestion
-- normalized storage model
-- reusable analytical views
-- lightweight service layer ready for API and dashboard integration
-
-That makes the project feel closer to a small data product rather than a notebook-only exercise.
+Этот слой делает проект похожим не на набор ноутбуков, а на маленький data product:
+- есть ingestion;
+- есть нормализованное хранилище;
+- есть аналитические витрины;
+- есть сервисный слой для API;
+- есть UI поверх готовых агрегатов.

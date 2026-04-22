@@ -306,14 +306,16 @@ SELECT
     median_salary_with_skill,
     median_salary_without_skill,
     ROUND(
-        median_salary_with_skill - median_salary_without_skill,
-        2
+    (median_salary_with_skill - median_salary_without_skill)::numeric,
+    2
     ) AS salary_premium_abs,
     ROUND(
+    (
         (median_salary_with_skill - median_salary_without_skill)
-        / NULLIF(median_salary_without_skill, 0),
-        4
-    ) AS salary_premium_pct
+        / NULLIF(median_salary_without_skill, 0)
+    )::numeric,
+    4
+) AS salary_premium_pct
 FROM aggregated
 WHERE vacancies_with_skill > 0
   AND vacancies_without_skill > 0;

@@ -20,11 +20,11 @@ class DashboardApiClient:
             response = httpx.get(url, params=params, timeout=self.timeout)
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise DashboardApiError(f"Failed to load {path}: {exc}") from exc
+            raise DashboardApiError(f"Не удалось загрузить данные {path}: {exc}") from exc
 
         payload = response.json()
         if not isinstance(payload, list):
-            raise DashboardApiError(f"Unexpected response format for {path}.")
+            raise DashboardApiError(f"API вернул неожиданный формат ответа для {path}.")
         return payload
 
     def get_roles(self) -> list[dict[str, Any]]:

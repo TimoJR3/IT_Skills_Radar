@@ -1,15 +1,23 @@
 # IT Skills Radar
 
-`IT Skills Radar` is a portfolio project for vacancy analytics in data and product roles.
+`IT Skills Radar` — портфельный проект по анализу вакансий в data и product направлениях.
 
-The project now includes:
-- PostgreSQL storage for normalized vacancies, roles, skills and salaries
-- ingestion pipeline from prepared JSON and CSV files
-- analytics views for top skills, trends, role comparison and salary premium
-- FastAPI endpoints over the analytics layer
-- Streamlit dashboard connected to the API
+Сервис собирает и нормализует вакансии, сохраняет их в PostgreSQL, строит аналитические витрины и показывает:
+- какие навыки чаще всего встречаются;
+- как меняется спрос на навыки по месяцам;
+- чем отличаются роли между собой;
+- какие навыки связаны с более высокой зарплатой.
 
-## Project structure
+## Что уже реализовано
+
+- слой хранения в PostgreSQL;
+- ingestion pipeline из подготовленных JSON и CSV файлов;
+- rule-based нормализация ролей и навыков;
+- аналитические SQL-витрины;
+- FastAPI API поверх агрегатов;
+- Streamlit dashboard на русском языке.
+
+## Структура проекта
 
 ```text
 .
@@ -35,30 +43,29 @@ The project now includes:
 └── requirements.txt
 ```
 
-## What is precomputed vs. what comes from API
+## Как устроен проект
 
-Precomputed in PostgreSQL views:
-- top skills by role
-- monthly skills trend
-- salary premium by skill
-- role skill distribution
-- junior and intern overview
+Что считается заранее в PostgreSQL:
+- топ навыков по роли;
+- динамика навыков по месяцам;
+- распределение навыков по ролям;
+- salary premium по навыкам;
+- обзор junior и intern ролей.
 
-Returned by FastAPI:
-- filtered rows from those precomputed views
-- roles list for UI filters
-- health check
+Что делает FastAPI:
+- отдает готовые агрегаты из аналитических витрин;
+- применяет фильтры по роли, уровню и навыку;
+- предоставляет endpoint проверки здоровья `/health`.
 
-Rendered in Streamlit:
-- role and seniority filters
-- top skills table
-- skill trend chart
-- salary premium block
-- junior summary block
+Что делает Streamlit:
+- показывает фильтры и summary-блок;
+- визуализирует топ навыков;
+- рисует динамику навыка по времени;
+- показывает salary premium и junior overview.
 
-## Quick start with Docker
+## Быстрый запуск через Docker
 
-### 1. Create `.env`
+### 1. Создать `.env`
 
 PowerShell:
 
@@ -66,13 +73,13 @@ PowerShell:
 Copy-Item .env.example .env
 ```
 
-### 2. Start services
+### 2. Поднять сервисы
 
 ```powershell
 docker compose up --build -d
 ```
 
-### 3. Apply schema, analytics views and seed
+### 3. Применить схему, аналитические витрины и seed
 
 ```powershell
 make init-db
@@ -80,47 +87,42 @@ make init-analytics
 make seed-db
 ```
 
-### 4. Run ingestion
+### 4. Запустить ingestion
 
-Dry-run:
+Сначала безопасная проверка:
 
 ```powershell
 docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual --dry-run
 ```
 
-Load JSON:
+Потом загрузка данных:
 
 ```powershell
 docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual
-```
-
-Load CSV:
-
-```powershell
 docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.csv --source manual
 ```
 
-### 5. Open services
+### 5. Открыть интерфейсы
 
 - API: [http://localhost:8000](http://localhost:8000)
 - Swagger: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Dashboard: [http://localhost:8501](http://localhost:8501)
 
-## Local run without Docker
+## Локальный запуск без Docker
 
-### 1. Install dependencies
+### 1. Установить зависимости
 
 ```powershell
 py -3 -m pip install -r requirements.txt
 ```
 
-### 2. Start API
+### 2. Запустить API
 
 ```powershell
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### 3. Start dashboard
+### 3. Запустить dashboard
 
 ```powershell
 streamlit run dashboard/app.py
@@ -135,19 +137,19 @@ streamlit run dashboard/app.py
 - `GET /salary/premium`
 - `GET /overview/junior`
 
-## Demo scenario
+## Пример demo-сценария
 
-One simple project demo flow:
+На защите проекта можно идти так:
 
-1. Open the dashboard.
-2. Select `Data Scientist` or `Product Analyst`.
-3. Filter to `junior` and `intern`.
-4. Show the top skills block and explain the share metric.
-5. Show the trend chart for one selected skill such as `Python` or `SQL`.
-6. Show the salary premium block and explain that it compares median salary with and without the skill.
-7. Close with the junior overview table to show market snapshot for entry-level roles.
+1. Открыть dashboard и показать, что интерфейс строится поверх API.
+2. Выбрать роль `Data Scientist` или `Product Analyst`.
+3. Оставить уровни `junior` и `intern`.
+4. Показать блок топ навыков и объяснить метрику доли вакансий.
+5. Выбрать навык `Python` или `SQL` и показать его динамику по времени.
+6. Показать блок salary premium и объяснить разницу медианных зарплат.
+7. Завершить junior overview как кратким срезом entry-level рынка.
 
-## Useful commands
+## Полезные команды
 
 ```powershell
 make test
@@ -157,18 +159,18 @@ make dry-run-json
 docker compose down
 ```
 
-## Current scope
+## Текущий scope
 
-Already implemented:
-- storage model
-- ingestion pipeline
-- analytics views
-- API layer
-- dashboard MVP
+Уже сделано:
+- storage layer;
+- ingestion;
+- normalization;
+- analytics layer;
+- API;
+- dashboard MVP.
 
-Not implemented yet:
-- production-grade scheduling
-- richer source connectors
-- auth
-- final UI polish
-- CI refinement
+Пока не сделано:
+- продвинутые коннекторы внешних источников;
+- оркестрация по расписанию;
+- полноценная финальная полировка UI;
+- финальная CI-конфигурация.

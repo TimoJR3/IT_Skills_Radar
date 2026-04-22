@@ -1,59 +1,68 @@
-# Architecture Overview
+# Архитектура проекта
 
-## Goal
+## Цель
 
-The project is intentionally simple: a small backend, a lightweight dashboard, and a PostgreSQL database. This keeps the code readable and realistic for a junior portfolio project while still showing good engineering structure.
+Проект специально сделан без лишней сложности: небольшой backend, отдельный dashboard и PostgreSQL как основное хранилище. Такой формат хорошо подходит для junior portfolio, потому что архитектуру можно быстро объяснить, но она все равно выглядит production-like.
 
-## Layered Structure
+## Слои
 
 ```text
 Streamlit dashboard
         |
         v
-FastAPI API layer
+FastAPI API
         |
         v
-Service layer
+Сервисный слой
         |
         v
-DB access layer
+Хранилище и аналитические витрины
         |
         v
 PostgreSQL
 ```
 
-## Responsibilities
+## Ответственность папок
 
 ### `app/api`
-HTTP endpoints and request routing. Keeps web concerns separated from business logic.
+
+HTTP endpoints, dependency injection и обработка ошибок API.
 
 ### `app/services`
-Application logic. In future stages this layer will orchestrate ingestion, normalization, and analytics.
+
+Прикладная логика:
+- ingestion;
+- нормализация;
+- чтение аналитических агрегатов.
 
 ### `app/db`
-Database connection utilities and shared DB-related code.
+
+Подключение к базе, инициализация схемы и аналитических view.
 
 ### `app/models`
-Database models for tables and persistence entities.
+
+Папка зарезервирована под ORM-модели, если проект в будущем будет расширяться.
 
 ### `app/schemas`
-Pydantic schemas for request and response validation.
 
-### `app/core`
-Core settings and shared configuration.
+Pydantic-схемы для входных и выходных данных API.
 
 ### `dashboard`
-Streamlit user interface for quick analytics views and portfolio demo screens.
+
+Streamlit-интерфейс для демонстрации аналитики работодателю.
+
+### `sql`
+
+SQL-файлы со схемой хранения, seed-данными и аналитическими витринами.
 
 ### `tests`
-Basic automated tests for API and future service logic.
 
-## Why This Structure
+Базовые unit-тесты и API-тесты.
 
-This scaffold demonstrates:
-- clean separation of concerns
-- API and UI packaged as separate services
-- database-ready setup
-- test-ready development workflow
-- straightforward path for future extension without overengineering
+## Почему структура именно такая
 
+Эта структура показывает:
+- разделение хранения, логики, API и UI;
+- понятный путь данных от raw-слоя до витрин;
+- готовность проекта к обсуждению на собеседовании;
+- возможность спокойно расширять проект дальше без полной перестройки.
