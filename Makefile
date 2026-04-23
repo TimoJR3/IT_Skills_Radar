@@ -1,6 +1,6 @@
 PYTHON ?= python
 
-.PHONY: install run-api run-dashboard test lint up down init-db init-analytics seed-db ingest-json ingest-csv dry-run-json
+.PHONY: install check test run-api run-dashboard up down init-db init-analytics seed-db ingest-json ingest-csv dry-run-json
 
 install:
 	cp -n .env.example .env || true
@@ -14,11 +14,15 @@ run-dashboard:
 	streamlit run dashboard/app.py
 
 test:
-	pytest -q
+	$(PYTHON) -m pytest -q
+
+check:
+	$(PYTHON) -m compileall app dashboard tests
+	$(PYTHON) -m pytest -q
 
 up:
 	cp -n .env.example .env || true
-	docker compose up --build
+	docker compose up --build -d
 
 down:
 	docker compose down

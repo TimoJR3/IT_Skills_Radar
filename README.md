@@ -1,26 +1,56 @@
 # IT Skills Radar
 
-`IT Skills Radar` — портфельный проект по анализу вакансий в data и product направлениях.
+`IT Skills Radar` — портфельный проект для анализа спроса на навыки в data и product вакансиях.
 
-Сервис собирает и нормализует вакансии, сохраняет их в PostgreSQL, строит аналитические витрины и показывает:
-- какие навыки чаще всего встречаются;
-- как меняется спрос на навыки по месяцам;
-- чем отличаются роли между собой;
-- какие навыки связаны с более высокой зарплатой.
-
-## Что уже реализовано
-
-- слой хранения в PostgreSQL;
-- ingestion pipeline из подготовленных JSON и CSV файлов;
-- rule-based нормализация ролей и навыков;
-- аналитические SQL-витрины;
-- FastAPI API поверх агрегатов;
+Проект показывает полный путь данных:
+- загрузка вакансий из prepared source;
+- валидация и rule-based нормализация;
+- хранение в PostgreSQL;
+- аналитические витрины в SQL;
+- FastAPI API;
 - Streamlit dashboard на русском языке.
 
-## Структура проекта
+## Что умеет проект
+
+Сервис помогает ответить на вопросы:
+- какие навыки чаще всего встречаются;
+- как меняется спрос на навыки по времени;
+- какие навыки характерны для разных ролей;
+- какие навыки связаны с более высокой зарплатой;
+- как выглядит срез junior / intern ролей.
+
+## Технологический стек
+
+- Python 3.11
+- PostgreSQL
+- FastAPI
+- Streamlit
+- Docker Compose
+- pytest
+- GitHub Actions
+
+## Архитектура
+
+Коротко:
+
+1. `ingestion` читает prepared JSON / CSV.
+2. `normalization` очищает поля и приводит роли/навыки к каноническому виду.
+3. PostgreSQL хранит raw и final слой.
+4. SQL views формируют аналитические витрины.
+5. FastAPI отдает агрегаты через API.
+6. Streamlit визуализирует результат.
+
+Подробно:
+- [docs/architecture.md](</C:/считай что диск D/Pet_project/IT_Skills_Radar/docs/architecture.md:1>)
+- [docs/data_dictionary.md](</C:/считай что диск D/Pet_project/IT_Skills_Radar/docs/data_dictionary.md:1>)
+- [docs/decisions.md](</C:/считай что диск D/Pet_project/IT_Skills_Radar/docs/decisions.md:1>)
+- [docs/analytics.md](</C:/считай что диск D/Pet_project/IT_Skills_Radar/docs/analytics.md:1>)
+
+## Структура репозитория
 
 ```text
 .
+├── .github/workflows
 ├── app
 │   ├── api
 │   ├── core
@@ -35,51 +65,38 @@
 ├── docs
 ├── sql
 ├── tests
+├── .dockerignore
 ├── .env.example
+├── .gitignore
+├── docker-compose.yml
 ├── Dockerfile
 ├── Makefile
-├── docker-compose.yml
+├── pytest.ini
 ├── README.md
 └── requirements.txt
 ```
 
-## Как устроен проект
-
-Что считается заранее в PostgreSQL:
-- топ навыков по роли;
-- динамика навыков по месяцам;
-- распределение навыков по ролям;
-- salary premium по навыкам;
-- обзор junior и intern ролей.
-
-Что делает FastAPI:
-- отдает готовые агрегаты из аналитических витрин;
-- применяет фильтры по роли, уровню и навыку;
-- предоставляет endpoint проверки здоровья `/health`.
-
-Что делает Streamlit:
-- показывает фильтры и summary-блок;
-- визуализирует топ навыков;
-- рисует динамику навыка по времени;
-- показывает salary premium и junior overview.
-
 ## Быстрый запуск через Docker
 
-### 1. Создать `.env`
+### 1. Перейти в папку проекта
 
-PowerShell:
+```powershell
+cd "C:\считай что диск D\Pet_project\IT_Skills_Radar"
+```
+
+### 2. Создать `.env`
 
 ```powershell
 Copy-Item .env.example .env
 ```
 
-### 2. Поднять сервисы
+### 3. Поднять контейнеры
 
 ```powershell
 docker compose up --build -d
 ```
 
-### 3. Применить схему, аналитические витрины и seed
+### 4. Применить схему и аналитические view
 
 ```powershell
 make init-db
@@ -87,28 +104,30 @@ make init-analytics
 make seed-db
 ```
 
-### 4. Запустить ingestion
+### 5. Запустить ingestion
 
-Сначала безопасная проверка:
+Проверка без записи:
 
 ```powershell
 docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual --dry-run
 ```
 
-Потом загрузка данных:
+Загрузка prepared sources:
 
 ```powershell
 docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual
 docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.csv --source manual
 ```
 
-### 5. Открыть интерфейсы
+### 6. Открыть интерфейсы
 
 - API: [http://localhost:8000](http://localhost:8000)
 - Swagger: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Dashboard: [http://localhost:8501](http://localhost:8501)
 
 ## Локальный запуск без Docker
+
+Этот вариант подходит, если PostgreSQL уже доступен отдельно и настроен `DATABASE_URL`.
 
 ### 1. Установить зависимости
 
@@ -128,7 +147,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 streamlit run dashboard/app.py
 ```
 
-## API endpoints
+## Основные API endpoints
 
 - `GET /health`
 - `GET /roles`
@@ -137,40 +156,75 @@ streamlit run dashboard/app.py
 - `GET /salary/premium`
 - `GET /overview/junior`
 
-## Пример demo-сценария
+## Что считается заранее, а что делает API
 
-На защите проекта можно идти так:
+Заранее считается в PostgreSQL:
+- `top_skills_by_role`
+- `skills_trend_monthly`
+- `role_skill_distribution`
+- `skill_salary_premium`
+- `junior_roles_overview`
 
-1. Открыть dashboard и показать, что интерфейс строится поверх API.
-2. Выбрать роль `Data Scientist` или `Product Analyst`.
-3. Оставить уровни `junior` и `intern`.
-4. Показать блок топ навыков и объяснить метрику доли вакансий.
-5. Выбрать навык `Python` или `SQL` и показать его динамику по времени.
-6. Показать блок salary premium и объяснить разницу медианных зарплат.
-7. Завершить junior overview как кратким срезом entry-level рынка.
+Что делает FastAPI:
+- отдает список ролей для фильтров;
+- возвращает уже готовые агрегаты с фильтрами;
+- предоставляет `/health`.
 
-## Полезные команды
+Что делает Streamlit:
+- отправляет запросы в API;
+- показывает summary, таблицы и графики;
+- не пересчитывает аналитику самостоятельно.
+
+## Тесты и проверки
+
+Локально:
 
 ```powershell
-make test
-make ingest-json
-make ingest-csv
-make dry-run-json
-docker compose down
+py -3 -m compileall app dashboard tests
+py -3 -m pytest -q
 ```
 
-## Текущий scope
+Через Makefile:
 
-Уже сделано:
-- storage layer;
-- ingestion;
-- normalization;
-- analytics layer;
-- API;
-- dashboard MVP.
+```powershell
+make check
+```
 
-Пока не сделано:
-- продвинутые коннекторы внешних источников;
-- оркестрация по расписанию;
-- полноценная финальная полировка UI;
-- финальная CI-конфигурация.
+CI:
+- GitHub Actions запускает установку зависимостей, compile check и `pytest`.
+
+## Demo-сценарий
+
+Короткий сценарий показа:
+
+1. Открыть dashboard.
+2. Выбрать роль `Data Scientist` или `Product Analyst`.
+3. Оставить уровни `junior` и `intern`.
+4. Показать топ навыков и долю вакансий с ними.
+5. Показать динамику одного навыка по времени.
+6. Показать salary premium.
+7. Завершить срезом по junior / intern ролям.
+
+Подробный чеклист:
+- [docs/demo_checklist.md](</C:/считай что диск D/Pet_project/IT_Skills_Radar/docs/demo_checklist.md:1>)
+
+## Документы для портфолио и собеседований
+
+- [docs/resume_bullets.md](</C:/считай что диск D/Pet_project/IT_Skills_Radar/docs/resume_bullets.md:1>)
+- [docs/interview_story.md](</C:/считай что диск D/Pet_project/IT_Skills_Radar/docs/interview_story.md:1>)
+
+## Ограничения текущей версии
+
+- ingestion работает с prepared source, а не с live API источников;
+- нормализация ролей и навыков rule-based;
+- salary premium — это практичная аналитическая метрика, а не causal inference;
+- проект intentionally не перегружен enterprise-инфраструктурой.
+
+## Следующие шаги
+
+Если развивать проект дальше, логичные направления:
+- подключение реальных источников вакансий;
+- расширение нормализации навыков и title aliases;
+- обогащение аналитики по локациям и форматам работы;
+- планировщик регулярного обновления данных;
+- финальная polish-версия UI.

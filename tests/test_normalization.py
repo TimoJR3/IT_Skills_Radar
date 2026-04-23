@@ -1,7 +1,10 @@
 from app.services.normalization import clean_text
+from app.services.normalization import normalize_employment_type
 from app.services.normalization import normalize_record
 from app.services.normalization import normalize_role
+from app.services.normalization import normalize_seniority
 from app.services.normalization import normalize_skills
+from app.services.normalization import normalize_work_format
 
 
 def test_clean_text_removes_html_and_extra_spaces() -> None:
@@ -15,6 +18,21 @@ def test_normalize_role_maps_dirty_title_to_product_analyst() -> None:
 
     assert role.code == "product_analyst"
     assert role.name == "Product Analyst"
+
+
+def test_normalize_seniority_maps_intern_and_junior_tokens() -> None:
+    assert normalize_seniority("Intern Data Analyst") == "intern"
+    assert normalize_seniority("Junior Data Scientist") == "junior"
+
+
+def test_normalize_work_format_detects_remote_and_hybrid() -> None:
+    assert normalize_work_format("remote", "Data Analyst", None) == "remote"
+    assert normalize_work_format(None, "Data Scientist", "Hybrid work with office visits") == "hybrid"
+
+
+def test_normalize_employment_type_maps_common_variants() -> None:
+    assert normalize_employment_type("full time") == "full_time"
+    assert normalize_employment_type("internship") == "internship"
 
 
 def test_normalize_skills_handles_aliases() -> None:

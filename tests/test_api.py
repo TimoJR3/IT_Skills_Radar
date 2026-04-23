@@ -68,11 +68,19 @@ class FakeAnalyticsService:
         ]
 
 
-app.dependency_overrides[get_analytics_service] = FakeAnalyticsService
-client = TestClient(app)
+class FailingAnalyticsService:
+    def get_roles(self) -> list[dict]:
+        raise RuntimeError("database is unavailable")
+
+
+def _build_client(service_cls: type) -> TestClient:
+    app.dependency_overrides[get_analytics_service] = service_cls
+    return TestClient(app)
 
 
 def test_health_endpoint_returns_ok() -> None:
+    client = _build_client(FakeAnalyticsService)
+
     response = client.get("/health")
 
     assert response.status_code == 200
@@ -80,6 +88,8 @@ def test_health_endpoint_returns_ok() -> None:
 
 
 def test_roles_endpoint_returns_items() -> None:
+    client = _build_client(FakeAnalyticsService)
+
     response = client.get("/roles")
 
     assert response.status_code == 200
@@ -87,6 +97,8 @@ def test_roles_endpoint_returns_items() -> None:
 
 
 def test_top_skills_endpoint_returns_items() -> None:
+    client = _build_client(FakeAnalyticsService)
+
     response = client.get("/skills/top", params={"role_code": "data_scientist"})
 
     assert response.status_code == 200
@@ -94,6 +106,8 @@ def test_top_skills_endpoint_returns_items() -> None:
 
 
 def test_skills_trends_endpoint_returns_items() -> None:
+    client = _build_client(FakeAnalyticsService)
+
     response = client.get("/skills/trends", params={"skill_slug": "python"})
 
     assert response.status_code == 200
@@ -101,6 +115,8 @@ def test_skills_trends_endpoint_returns_items() -> None:
 
 
 def test_salary_premium_endpoint_returns_items() -> None:
+    client = _build_client(FakeAnalyticsService)
+
     response = client.get("/salary/premium", params={"skill_slug": "python"})
 
     assert response.status_code == 200
@@ -108,7 +124,18 @@ def test_salary_premium_endpoint_returns_items() -> None:
 
 
 def test_junior_overview_endpoint_returns_items() -> None:
+    client = _build_client(FakeAnalyticsService)
+
     response = client.get("/overview/junior")
 
     assert response.status_code == 200
     assert response.json()[0]["total_vacancies"] == 4
+
+
+def test_roles_endpoint_returns_503_when_service_unavailable() -> None:
+    client = _build_client(FailingAnalyticsService)
+
+    response = client.get("/roles")
+
+    assert response.status_code == 503
+    assert "Сервис аналитики недоступен" in response.json()["detail"]
