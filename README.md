@@ -215,6 +215,10 @@ make check
 CI:
 - GitHub Actions запускает установку зависимостей, compile check и `pytest`.
 
+## Лицензия
+
+Проект распространяется по лицензии `MIT`. Полный текст: [LICENSE](</C:/считай что диск D/Pet_project/IT_Skills_Radar/LICENSE>).
+
 ## Demo-сценарий
 
 Короткий сценарий показа:
