@@ -81,7 +81,6 @@ Streamlit dashboard
 - Docker Compose
 
 ```powershell
-cd "C:\считай что диск D\Pet_project\IT_Skills_Radar"
 Copy-Item .env.example .env
 docker compose up --build -d
 ```
