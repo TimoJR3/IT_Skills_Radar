@@ -19,6 +19,20 @@
 
 Dashboard сделан как отдельный `skills market radar`: верхняя командная панель, горизонтальные фильтры без sidebar, вкладки рабочего пространства, skill chips, ранжированные skill tiles, светлые графики, объяснения метрик и smoke checks для API/БД.
 
+## Скриншоты
+
+### Dashboard: карта рынка
+
+![IT Skills Radar dashboard: карта рынка](docs/assets/dashboard-market-map.jpg)
+
+### Dashboard: топ навыков
+
+![IT Skills Radar dashboard: график топ навыков](docs/assets/dashboard-top-skills-chart.jpg)
+
+### FastAPI Swagger
+
+![IT Skills Radar Swagger API](docs/assets/swagger-api-docs.jpg)
+
 ## Что можно узнать
 
 - Какие навыки чаще всего встречаются в вакансиях.
