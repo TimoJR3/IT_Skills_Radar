@@ -2,7 +2,6 @@
 
 `IT Skills Radar` — портфельный data-проект, который показывает, какие навыки чаще всего требуются в data/product вакансиях, как меняется спрос по времени и какие навыки связаны с более высокой зарплатой.
 
-[Репозиторий](https://github.com/TimoJR3/IT_Skills_Radar)
 
 ## Коротко
 
@@ -84,7 +83,6 @@ Streamlit dashboard
 - Docker Compose
 
 ```powershell
-cd "C:\считай что диск D\Pet_project\IT_Skills_Radar"
 Copy-Item .env.example .env
 docker compose up --build -d
 docker compose exec api python -m app.db.prepare_demo
