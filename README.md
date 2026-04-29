@@ -14,9 +14,11 @@
 4. хранение в `PostgreSQL`;
 5. аналитические SQL-витрины;
 6. `FastAPI` для доступа к агрегатам;
-7. `Streamlit` dashboard на русском языке.
+7. `Streamlit` dashboard на русском языке с блоком проверки демо.
 
 Проект intentionally сделан без enterprise-перегруза: простая архитектура, понятный код и воспроизводимый запуск через Docker.
+
+Dashboard сделан как отдельный `skills market radar`: верхняя командная панель, горизонтальные фильтры без sidebar, вкладки рабочего пространства, skill chips, ранжированные skill tiles, светлые графики, объяснения метрик и smoke checks для API/БД.
 
 ## Что можно узнать
 
@@ -85,9 +87,10 @@ Streamlit dashboard
 cd "C:\считай что диск D\Pet_project\IT_Skills_Radar"
 Copy-Item .env.example .env
 docker compose up --build -d
+docker compose exec api python -m app.db.prepare_demo
 ```
 
-Инициализировать базу, витрины и seed-данные:
+API-контейнер при старте применяет схему, аналитические витрины и seed-данные. Команда `prepare_demo` повторно готовит базу для демонстрации. Если нужно выполнить шаги вручную:
 
 ```powershell
 make init-db
@@ -102,16 +105,69 @@ docker compose exec api python -m app.services.ingestion --input data/samples/pr
 docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.csv --source manual
 ```
 
+## Проверка на 10 000 строк
+
+Для проверки производительности ingestion, PostgreSQL views, API и dashboard можно сгенерировать большой реалистичный набор подготовленных вакансий. Файл создается локально в `data/generated/` и не хранится в Git.
+
+```powershell
+py -3 -m app.services.large_sample --rows 10000 --output data/generated/large_vacancies_10000.json
+docker compose exec api python -m app.services.ingestion --input data/generated/large_vacancies_10000.json --source manual
+```
+
+То же через Makefile:
+
+```powershell
+make load-test-10k
+```
+
+После загрузки проверьте API:
+
+```powershell
+Invoke-RestMethod "http://localhost:8000/skills/top?rank_limit=10"
+Invoke-RestMethod "http://localhost:8000/overview/junior"
+```
+
 Открыть:
 - API: [http://localhost:8000](http://localhost:8000)
 - Swagger: [http://localhost:8000/docs](http://localhost:8000/docs)
 - Dashboard: [http://localhost:8501](http://localhost:8501)
+
+В dashboard есть вкладка `Проверка демо`: она показывает, доступны ли `/health`, `/roles`, аналитические endpoints, база данных, SQL-витрины и демо-данные.
 
 ## Проверка без записи в БД
 
 ```powershell
 docker compose exec api python -m app.services.ingestion --input data/samples/prepared_vacancies.json --source manual --dry-run
 ```
+
+## Troubleshooting
+
+Если dashboard показывает ошибку `/roles`:
+
+1. Проверьте, что контейнеры запущены:
+
+```powershell
+docker compose ps
+```
+
+2. Проверьте API:
+
+```powershell
+Invoke-WebRequest http://localhost:8000/health
+Invoke-WebRequest http://localhost:8000/roles
+```
+
+3. Повторно примените схему и витрины:
+
+```powershell
+make init-db
+make init-analytics
+make seed-db
+```
+
+4. Откройте Swagger:
+
+[http://localhost:8000/docs](http://localhost:8000/docs)
 
 ## API
 
@@ -174,12 +230,13 @@ make check
 ## Demo-сценарий
 
 1. Открыть dashboard.
-2. Выбрать роль `Data Scientist` или `Product Analyst`.
-3. Оставить уровни `junior` и `intern`.
-4. Показать топ навыков и долю вакансий с ними.
-5. Выбрать один навык и показать динамику по месяцам.
-6. Показать salary premium.
-7. Завершить обзором junior / intern ролей.
+2. В горизонтальной панели выбрать роль `Data Scientist` или `Product Analyst`.
+3. Оставить уровни `junior` и `intern`, выбрать 1-3 навыка для динамики.
+4. На вкладке `Карта рынка` показать профиль роли, skill chips и ranked tiles.
+5. На вкладке `Матрица навыков` показать различия спроса по навыкам.
+6. На вкладке `Динамика спроса` показать месячную динамику навыков.
+7. На вкладке `Зарплатный сигнал` объяснить salary premium без причинных выводов.
+8. Завершить вкладками `Junior / Intern` и `Проверка демо`.
 
 Подробный чеклист: [docs/demo_checklist.md](docs/demo_checklist.md)
 

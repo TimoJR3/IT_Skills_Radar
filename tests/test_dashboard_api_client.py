@@ -47,6 +47,24 @@ def test_dashboard_api_client_raises_readable_error_on_http_failure(
         client.get_roles()
 
     assert "Не удалось загрузить данные" in str(exc_info.value)
+    assert exc_info.value.endpoint == "/roles"
+    assert exc_info.value.status_code == 500
+
+
+def test_dashboard_api_client_returns_safe_result_on_http_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_get(url: str, params: dict | None = None, timeout: float = 20.0) -> DummyResponse:
+        return DummyResponse({"detail": "database is unavailable"}, status_code=503)
+
+    monkeypatch.setattr(httpx, "get", fake_get)
+
+    client = DashboardApiClient("http://localhost:8000")
+    result = client.request_list("/roles")
+
+    assert result.ok is False
+    assert result.status_code == 503
+    assert "database is unavailable" in result.message
 
 
 def test_dashboard_api_client_raises_error_for_unexpected_payload(

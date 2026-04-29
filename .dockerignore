@@ -8,6 +8,7 @@ __pycache__
 .coverage
 htmlcov
 .env
+data/generated
 .Rhistory
 *.pyc
 *.pyo
