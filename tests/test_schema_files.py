@@ -10,6 +10,16 @@ def test_sql_files_exist() -> None:
     assert (BASE_DIR / "sql" / "03_analytics_views.sql").exists()
 
 
+def test_prepare_demo_module_exists() -> None:
+    assert (BASE_DIR / "app" / "db" / "prepare_demo.py").exists()
+
+
+def test_dashboard_ui_modules_exist() -> None:
+    assert (BASE_DIR / "dashboard" / "charts.py").exists()
+    assert (BASE_DIR / "dashboard" / "components.py").exists()
+    assert (BASE_DIR / "dashboard" / "styles.py").exists()
+
+
 def test_data_dictionary_exists() -> None:
     assert (BASE_DIR / "docs" / "data_dictionary.md").exists()
 

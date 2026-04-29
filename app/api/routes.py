@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import HTTPException
 from fastapi import Query
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.dependencies import get_analytics_service
 from app.schemas.analytics import JuniorOverviewItem
@@ -27,6 +28,14 @@ def _safe_call(operation: str, func: Callable[[], list[dict[str, Any]]]) -> list
         raise HTTPException(
             status_code=503,
             detail=f"Сервис аналитики недоступен для операции '{operation}': {exc}",
+        ) from exc
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "База данных не инициализирована, недоступна или "
+                f"аналитические витрины еще не созданы для операции '{operation}'."
+            ),
         ) from exc
     except Exception as exc:  # pragma: no cover
         raise HTTPException(

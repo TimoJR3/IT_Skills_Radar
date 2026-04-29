@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.api.dependencies import get_analytics_service
 from app.main import app
@@ -73,6 +74,16 @@ class FailingAnalyticsService:
         raise RuntimeError("database is unavailable")
 
 
+class DatabaseFailingAnalyticsService:
+    def get_roles(self) -> list[dict]:
+        raise SQLAlchemyError("relation roles does not exist")
+
+
+class EmptyAnalyticsService:
+    def get_roles(self) -> list[dict]:
+        return []
+
+
 def _build_client(service_cls: type) -> TestClient:
     app.dependency_overrides[get_analytics_service] = service_cls
     return TestClient(app)
@@ -94,6 +105,15 @@ def test_roles_endpoint_returns_items() -> None:
 
     assert response.status_code == 200
     assert response.json()[0]["role_code"] == "data_scientist"
+
+
+def test_roles_endpoint_handles_empty_database_safely() -> None:
+    client = _build_client(EmptyAnalyticsService)
+
+    response = client.get("/roles")
+
+    assert response.status_code == 200
+    assert response.json() == []
 
 
 def test_top_skills_endpoint_returns_items() -> None:
@@ -139,3 +159,12 @@ def test_roles_endpoint_returns_503_when_service_unavailable() -> None:
 
     assert response.status_code == 503
     assert "Сервис аналитики недоступен" in response.json()["detail"]
+
+
+def test_roles_endpoint_returns_503_for_database_errors() -> None:
+    client = _build_client(DatabaseFailingAnalyticsService)
+
+    response = client.get("/roles")
+
+    assert response.status_code == 503
+    assert "База данных не инициализирована" in response.json()["detail"]
