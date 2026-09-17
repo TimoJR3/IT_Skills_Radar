@@ -1,0 +1,722 @@
+openapi: 3.0.3
+info:
+  title: IT Skills Radar API
+  version: 0.1.0
+  description: |
+    API аналитики навыков в junior/intern-вакансиях data- и product-аналитики.
+    Все эндпоинты только читают данные из витрин `analytics.*`.
+
+    Спецификация подготовлена системным аналитиком по коду `app/api/routes.py`
+    и `app/schemas/analytics.py` репозитория TimoJR3/IT_Skills_Radar.
+
+    Обозначения:
+    - `x-implementation-status: implemented` — есть в текущем коде;
+    - `x-implementation-status: designed` — проектное решение, в текущей реализации отсутствует.
+
+    Формат ошибок: сейчас FastAPI возвращает `application/json` с полем `detail`.
+    Целевой формат — `application/problem+json` по RFC 9457
+    (проектное решение, в текущей реализации отсутствует).
+  contact:
+    name: TimoJR3
+    url: https://github.com/TimoJR3/IT_Skills_Radar
+  license:
+    name: MIT
+servers:
+  - url: http://localhost:8000
+    description: Локальный стенд (docker compose), текущая версия без префикса
+  - url: http://localhost:8000/api/v1
+    description: Целевой адрес с версией (проектное решение, в текущей реализации отсутствует)
+tags:
+  - name: health
+    description: Проверка доступности
+  - name: analytics
+    description: Аналитические витрины
+  - name: ingestion
+    description: Журнал загрузок (проектное решение, в текущей реализации отсутствует)
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      operationId: healthcheck
+      summary: Проверка доступности сервиса
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Сервис доступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: ok
+
+  /roles:
+    get:
+      tags: [analytics]
+      operationId: getRoles
+      summary: Список ролей
+      description: Возвращает список нормализованных ролей для фильтров UI.
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Список ролей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleItem'
+              example:
+                - role_code: data_analyst
+                  role_name: Data Analyst
+                - role_code: data_scientist
+                  role_name: Data Scientist
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /skills/top:
+    get:
+      tags: [analytics]
+      operationId: getTopSkills
+      summary: Топ навыков по роли
+      description: |
+        Самые частые навыки по выбранной роли и уровню.
+        Источник — `analytics.top_skills_by_role`. Требование US-01.
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/RoleCode'
+        - $ref: '#/components/parameters/SeniorityLevels'
+        - name: rank_limit
+          in: query
+          required: false
+          description: Максимум строк в выдаче
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 10
+      responses:
+        '200':
+          description: Навыки, отсортированные по skill_rank
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TopSkillItem'
+              example:
+                - role_code: data_analyst
+                  role_name: Data Analyst
+                  seniority_level: junior
+                  skill_slug: sql
+                  skill_name: SQL
+                  vacancy_count: 42
+                  vacancy_share: 0.84
+                  skill_rank: 1
+                - role_code: data_analyst
+                  role_name: Data Analyst
+                  seniority_level: junior
+                  skill_slug: python
+                  skill_name: Python
+                  vacancy_count: 31
+                  vacancy_share: 0.62
+                  skill_rank: 2
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/RoleNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /skills/trends:
+    get:
+      tags: [analytics]
+      operationId: getSkillTrends
+      summary: Динамика навыков по месяцам
+      description: |
+        Помесячная динамика упоминаний навыка.
+        Источник — `analytics.skills_trend_monthly`. Требование US-02.
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/SkillSlug'
+        - $ref: '#/components/parameters/RoleCode'
+        - $ref: '#/components/parameters/SeniorityLevels'
+      responses:
+        '200':
+          description: Точки временного ряда
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SkillTrendItem'
+              example:
+                - month_start: '2026-04-01'
+                  role_code: data_scientist
+                  role_name: Data Scientist
+                  seniority_level: junior
+                  skill_slug: python
+                  skill_name: Python
+                  vacancy_count: 12
+                  vacancy_share: 0.92
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/RoleNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /skills/distribution:
+    get:
+      tags: [analytics]
+      operationId: getRoleSkillDistribution
+      summary: Распределение навыков по ролям
+      description: |
+        Проникновение навыков в роли. Источник — `analytics.role_skill_distribution`.
+        Требование US-03. Проектное решение, в текущей реализации отсутствует:
+        витрина и Pydantic-схема `RoleSkillDistributionItem` есть в коде, маршрута нет.
+      x-implementation-status: designed
+      parameters:
+        - $ref: '#/components/parameters/SkillSlug'
+        - $ref: '#/components/parameters/RoleCode'
+        - $ref: '#/components/parameters/SeniorityLevels'
+      responses:
+        '200':
+          description: Строки распределения
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/RoleSkillDistributionItem'
+              example:
+                - role_code: product_analyst
+                  role_name: Product Analyst
+                  seniority_level: junior
+                  skill_slug: a_b_testing
+                  skill_name: A/B testing
+                  vacancy_count: 18
+                  skill_penetration_in_role: 0.72
+                  role_share_of_skill: 0.64
+                  required_share: 0.5
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/RoleNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /salary/premium:
+    get:
+      tags: [analytics]
+      operationId: getSalaryPremium
+      summary: Премия к зарплате по навыкам
+      description: |
+        Сравнивает медианную зарплату вакансий с навыком и без навыка.
+        Только RUB и период month. Это корреляционный сигнал, а не причинность.
+        Источник — `analytics.skill_salary_premium`. Требование US-04.
+      x-implementation-status: implemented
+      parameters:
+        - $ref: '#/components/parameters/SkillSlug'
+        - $ref: '#/components/parameters/RoleCode'
+        - $ref: '#/components/parameters/SeniorityLevels'
+      responses:
+        '200':
+          description: Зарплатный сигнал по навыкам
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SalaryPremiumItem'
+              example:
+                - role_code: data_analyst
+                  role_name: Data Analyst
+                  seniority_level: junior
+                  skill_slug: python
+                  skill_name: Python
+                  vacancies_with_skill: 20
+                  vacancies_without_skill: 14
+                  median_salary_with_skill: 110000
+                  median_salary_without_skill: 95000
+                  salary_premium_abs: 15000
+                  salary_premium_pct: 0.1579
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/RoleNotFound'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /overview/junior:
+    get:
+      tags: [analytics]
+      operationId: getJuniorOverview
+      summary: Обзор junior и intern ролей
+      description: |
+        Краткий срез по entry-level ролям и зарплатам.
+        Источник — `analytics.junior_roles_overview`. Требование US-05.
+      x-implementation-status: implemented
+      responses:
+        '200':
+          description: Срез по ролям
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/JuniorOverviewItem'
+              example:
+                - role_code: data_analyst
+                  role_name: Data Analyst
+                  seniority_level: junior
+                  total_vacancies: 50
+                  salary_vacancies: 34
+                  salary_coverage: 0.68
+                  median_salary_mid: 100000
+                  average_salary_mid: 104500
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /ingestion/runs/{run_id}:
+    get:
+      tags: [ingestion]
+      operationId: getIngestionRun
+      summary: Результат прогона загрузки
+      description: |
+        Сводка прогона из таблицы `ingestion_runs`. Требование US-07 AC3.
+        Проектное решение, в текущей реализации отсутствует.
+      x-implementation-status: designed
+      parameters:
+        - name: run_id
+          in: path
+          required: true
+          description: Идентификатор прогона
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Сводка прогона
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/IngestionRun'
+              example:
+                run_id: 3f7a1c2e-5b6d-4e8f-9a0b-1c2d3e4f5a6b
+                source_name: manual
+                status: partial
+                started_at: '2026-09-10T09:00:00+03:00'
+                finished_at: '2026-09-10T09:00:04+03:00'
+                total_records: 3
+                valid_records: 2
+                invalid_records: 1
+                loaded_records: 2
+                errors:
+                  - record_index: 2
+                    message: 'Missing required field: company_name'
+        '404':
+          description: Прогон не найден
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://it-skills-radar.local/problems/run-not-found
+                title: Прогон загрузки не найден
+                status: 404
+                detail: Прогон 3f7a1c2e-5b6d-4e8f-9a0b-1c2d3e4f5a6b не найден
+                instance: /ingestion/runs/3f7a1c2e-5b6d-4e8f-9a0b-1c2d3e4f5a6b
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  parameters:
+    RoleCode:
+      name: role_code
+      in: query
+      required: false
+      description: Код роли, например data_scientist. Если не задан — все роли.
+      schema:
+        $ref: '#/components/schemas/RoleCode'
+    SeniorityLevels:
+      name: seniority_levels
+      in: query
+      required: false
+      description: |
+        Список уровней seniority; передаётся повторением параметра:
+        `?seniority_levels=intern&seniority_levels=junior`.
+        В текущем коде тип — `list[str]` без перечисления; проверка по enum — проектное решение.
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          $ref: '#/components/schemas/SeniorityLevel'
+    SkillSlug:
+      name: skill_slug
+      in: query
+      required: false
+      description: Slug навыка, например python
+      schema:
+        type: string
+        example: python
+
+  schemas:
+    RoleCode:
+      type: string
+      description: Код роли из справочника roles
+      example: data_analyst
+    SeniorityLevel:
+      type: string
+      enum: [intern, junior, middle, senior, lead, unknown]
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+    RoleItem:
+      type: object
+      required: [role_code, role_name]
+      properties:
+        role_code:
+          type: string
+        role_name:
+          type: string
+    TopSkillItem:
+      type: object
+      required: [role_code, role_name, seniority_level, skill_slug, skill_name, vacancy_count, vacancy_share, skill_rank]
+      properties:
+        role_code:
+          type: string
+        role_name:
+          type: string
+        seniority_level:
+          type: string
+        skill_slug:
+          type: string
+        skill_name:
+          type: string
+        vacancy_count:
+          type: integer
+        vacancy_share:
+          type: number
+          nullable: true
+          description: Доля вакансий группы «роль + грейд» с навыком, 0..1
+        skill_rank:
+          type: integer
+          minimum: 1
+    SkillTrendItem:
+      type: object
+      required: [month_start, role_code, role_name, seniority_level, skill_slug, skill_name, vacancy_count, vacancy_share]
+      properties:
+        month_start:
+          type: string
+          format: date
+        role_code:
+          type: string
+        role_name:
+          type: string
+        seniority_level:
+          type: string
+        skill_slug:
+          type: string
+        skill_name:
+          type: string
+        vacancy_count:
+          type: integer
+        vacancy_share:
+          type: number
+          nullable: true
+    RoleSkillDistributionItem:
+      type: object
+      required: [role_code, role_name, seniority_level, skill_slug, skill_name, vacancy_count, skill_penetration_in_role, role_share_of_skill, required_share]
+      properties:
+        role_code:
+          type: string
+        role_name:
+          type: string
+        seniority_level:
+          type: string
+        skill_slug:
+          type: string
+        skill_name:
+          type: string
+        vacancy_count:
+          type: integer
+        skill_penetration_in_role:
+          type: number
+          nullable: true
+        role_share_of_skill:
+          type: number
+          nullable: true
+        required_share:
+          type: number
+          nullable: true
+    SalaryPremiumItem:
+      type: object
+      required: [role_code, role_name, seniority_level, skill_slug, skill_name, vacancies_with_skill, vacancies_without_skill, median_salary_with_skill, median_salary_without_skill, salary_premium_abs, salary_premium_pct]
+      properties:
+        role_code:
+          type: string
+        role_name:
+          type: string
+        seniority_level:
+          type: string
+        skill_slug:
+          type: string
+        skill_name:
+          type: string
+        vacancies_with_skill:
+          type: integer
+        vacancies_without_skill:
+          type: integer
+        median_salary_with_skill:
+          type: number
+          nullable: true
+        median_salary_without_skill:
+          type: number
+          nullable: true
+        salary_premium_abs:
+          type: number
+          nullable: true
+        salary_premium_pct:
+          type: number
+          nullable: true
+    JuniorOverviewItem:
+      type: object
+      required: [role_code, role_name, seniority_level, total_vacancies, salary_vacancies, salary_coverage, median_salary_mid, average_salary_mid]
+      properties:
+        role_code:
+          type: string
+        role_name:
+          type: string
+        seniority_level:
+          type: string
+        total_vacancies:
+          type: integer
+        salary_vacancies:
+          type: integer
+        salary_coverage:
+          type: number
+          nullable: true
+        median_salary_mid:
+          type: number
+          nullable: true
+        average_salary_mid:
+          type: number
+          nullable: true
+    IngestionRun:
+      type: object
+      description: Проектное решение, в текущей реализации отсутствует
+      required: [run_id, source_name, status, started_at]
+      properties:
+        run_id:
+          type: string
+          format: uuid
+        source_name:
+          type: string
+          enum: [hh_ru, habr_career, superjob, manual]
+        status:
+          type: string
+          enum: [running, success, partial, failed]
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        total_records:
+          type: integer
+        valid_records:
+          type: integer
+        invalid_records:
+          type: integer
+        loaded_records:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              record_index:
+                type: integer
+              message:
+                type: string
+    DetailError:
+      type: object
+      description: Текущий формат ошибок FastAPI для HTTPException
+      required: [detail]
+      properties:
+        detail:
+          type: string
+    HTTPValidationError:
+      type: object
+      description: Текущий формат ошибки валидации FastAPI (422)
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            required: [loc, msg, type]
+            properties:
+              loc:
+                type: array
+                items:
+                  oneOf:
+                    - type: string
+                    - type: integer
+              msg:
+                type: string
+              type:
+                type: string
+    Problem:
+      type: object
+      description: RFC 9457 Problem Details (проектное решение, в текущей реализации отсутствует)
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+        request_id:
+          type: string
+          description: Идентификатор запроса для поиска в логах
+        errors:
+          type: array
+          description: Ошибки по отдельным параметрам
+          items:
+            type: object
+            properties:
+              parameter:
+                type: string
+              message:
+                type: string
+
+  responses:
+    BadRequest:
+      description: |
+        Семантически некорректный запрос, например неизвестное значение seniority_levels.
+        Проектное решение, в текущей реализации отсутствует (сейчас такой фильтр вернёт пустой список).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://it-skills-radar.local/problems/invalid-filter
+            title: Некорректный фильтр
+            status: 400
+            detail: 'Недопустимое значение seniority_levels: trainee'
+            instance: /skills/top
+            request_id: 8c1e4b7a
+            errors:
+              - parameter: seniority_levels
+                message: 'Допустимые значения: intern, junior, middle, senior, lead, unknown'
+    RoleNotFound:
+      description: |
+        Роль с указанным role_code отсутствует в справочнике.
+        Проектное решение, в текущей реализации отсутствует (сейчас вернётся 200 и пустой список).
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://it-skills-radar.local/problems/role-not-found
+            title: Роль не найдена
+            status: 404
+            detail: 'Роль с кодом qa_engineer отсутствует в справочнике'
+            instance: /skills/top
+            request_id: 8c1e4b7b
+    ValidationError:
+      description: |
+        Ошибка валидации параметров. Реализовано (FastAPI/Pydantic), формат `application/json`.
+        Целевой формат `application/problem+json` — проектное решение.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/HTTPValidationError'
+          example:
+            detail:
+              - loc: [query, rank_limit]
+                msg: Input should be less than or equal to 30
+                type: less_than_equal
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://it-skills-radar.local/problems/validation-error
+            title: Ошибка валидации параметров
+            status: 422
+            detail: rank_limit должен быть от 1 до 30
+            instance: /skills/top
+            request_id: 8c1e4b7c
+            errors:
+              - parameter: rank_limit
+                message: Значение 31 больше максимума 30
+    InternalError:
+      description: Непредвиденная ошибка сервера. Реализовано.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DetailError'
+          example:
+            detail: "Не удалось получить данные для операции 'топ навыков'."
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: https://it-skills-radar.local/problems/internal-error
+            title: Внутренняя ошибка сервиса
+            status: 500
+            detail: Не удалось получить данные. Повторите запрос позже.
+            instance: /skills/top
+            request_id: 8c1e4b7d
+    ServiceUnavailable:
+      description: |
+        БД недоступна, не инициализирована или витрины не созданы (SQLAlchemyError / RuntimeError).
+        Реализовано.
+      headers:
+        Retry-After:
+          description: Через сколько секунд повторить (проектное решение, в текущей реализации отсутствует)
+          schema:
+            type: integer
+            example: 30
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DetailError'
+          example:
+            detail: "База данных не инициализирована, недоступна или аналитические витрины еще не созданы для операции 'топ навыков'."
