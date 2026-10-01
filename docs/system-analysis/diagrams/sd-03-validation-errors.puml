@@ -1,0 +1,51 @@
+@startuml
+title SD-03. Ошибки валидации: загрузка и API
+autonumber
+
+actor "Владелец данных" as D
+participant "CLI ingestion" as CLI
+database "PostgreSQL" as DB
+actor "Пользователь" as U
+participant "Streamlit" as S
+participant "FastAPI" as A
+
+== Ветка 1. Запись файла без обязательного поля ==
+D -> CLI : --input vacancies.json (3 записи)
+activate CLI
+CLI -> CLI : validate_required_fields(запись 2)
+note right of CLI : нет company_name
+CLI -> CLI : пропустить запись,\ninvalid_records = 1
+CLI -> DB : upsert записей 1 и 3
+DB --> CLI : OK
+opt [проект] журнал загрузок
+  CLI -> DB : INSERT ingestion_runs\n(status = partial, errors)
+end
+CLI --> D : {"total_records": 3, "valid_records": 2,\n"invalid_records": 1, "loaded_records": 2,\n"errors": ["Missing required field: company_name"]}
+deactivate CLI
+D -> D : исправить источник и\nповторить загрузку (upsert, без дублей)
+
+== Ветка 2. Некорректный параметр запроса ==
+U -> S : ввести количество навыков = 31
+S -> A : GET /skills/top?rank_limit=31
+activate A
+A -> A : проверка Query(ge = 1, le = 30)
+alt текущая реализация
+  A --> S : 422 application/json\n{"detail": [{"loc": ["query","rank_limit"], ...}]}
+else [проект] problem+json
+  A --> S : 422 application/problem+json\n{"type", "title", "status": 422, "errors": [...], "request_id"}
+end
+deactivate A
+note right of A : Запрос в БД не выполняется
+S --> U : «Некорректный фильтр»,\nзначение сброшено к 10
+
+== Ветка 3. [проект] Значение вне справочника ==
+U -> S : роль = qa_engineer (из закладки)
+S -> A : GET /skills/top?role_code=qa_engineer
+activate A
+A -> DB : проверить role_code в roles
+DB --> A : не найдено
+A --> S : 404 application/problem+json\n"Роль не найдена"
+deactivate A
+S --> U : «Роль не найдена», фильтр сброшен
+note over A : Сейчас неизвестная роль даёт 200 и пустой список
+@enduml

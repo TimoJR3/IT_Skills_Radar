@@ -190,30 +190,29 @@ AC2  Given БД не инициализирована или витрины не
 - BR-02. Учитываются только активные вакансии (`is_active = true`).
 - BR-03. `vacancy_share` = число вакансий с навыком / число вакансий в группе «роль + грейд».
 
-```plantuml
-@startuml
-left to right direction
-skinparam packageStyle rectangle
-actor "Пользователь" as U
-actor "Владелец данных" as D
-actor "Внешний потребитель API" as E
-rectangle "IT Skills Radar" {
-  usecase "UC-01 Топ навыков по роли" as UC1
-  usecase "UC-02 Динамика навыка" as UC2
-  usecase "UC-03 Зарплатный сигнал" as UC3
-  usecase "UC-04 Проверить стенд" as UC4
-  usecase "UC-05 Загрузить вакансии" as UC5
-  usecase "Проверить файл (dry-run)" as UC6
-}
-U --> UC1
-U --> UC2
-U --> UC3
-E --> UC1
-D --> UC4
-D --> UC5
-UC5 ..> UC6 : <<include>>
-@enduml
+```mermaid
+flowchart LR
+    U(["👤 Пользователь"])
+    D(["👤 Владелец данных"])
+    E(["👤 Внешний потребитель API"])
+    subgraph SYS["IT Skills Radar"]
+        UC1(["UC-01 Топ навыков по роли"])
+        UC2(["UC-02 Динамика навыка"])
+        UC3(["UC-03 Зарплатный сигнал"])
+        UC4(["UC-04 Проверить стенд"])
+        UC5(["UC-05 Загрузить вакансии"])
+        UC6(["Проверить файл (dry-run)"])
+    end
+    U --> UC1
+    U --> UC2
+    U --> UC3
+    E --> UC1
+    D --> UC4
+    D --> UC5
+    UC5 -. "«include»" .-> UC6
 ```
+
+Исходник PlantUML: [diagrams/uc-01-use-cases.puml](diagrams/uc-01-use-cases.puml)
 
 ## 3. Нефункциональные требования
 

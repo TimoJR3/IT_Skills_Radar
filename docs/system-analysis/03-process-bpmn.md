@@ -1,6 +1,6 @@
 # 03. Процесс сбора и обновления вакансий (BPMN)
 
-Процесс описан в нотации BPMN 2.0 (таблица элементов) и визуализирован как PlantUML activity-диаграмма со swimlanes: дорожка = участник процесса, ромб = шлюз XOR, `start`/`stop` = стартовое и конечное события.
+Процесс описан в нотации BPMN 2.0 (таблица элементов) и визуализирован как flowchart со swimlanes: дорожка = участник процесса, ромб = шлюз XOR, круг = стартовое или конечное событие.
 
 Связанные требования: US-06, US-07, US-08 ([02-requirements.md](02-requirements.md)).
 
@@ -29,46 +29,36 @@
 
 ### Диаграмма AS-IS
 
-```plantuml
-@startuml
-title AS-IS: ручная загрузка вакансий из файла
-|Владелец данных|
-start
-:Нужно обновить данные;
-:Подготовить JSON/CSV
-в data/samples;
-|CLI ingestion|
-:Запустить с --dry-run;
-:Прочитать файл
-(load_source_records);
-:Проверить обязательные поля
-(source_vacancy_id, title, company_name);
-:Очистить текст, нормализовать
-роль, грейд, навыки, зарплату;
-:Вывести JSON-сводку
-(total/valid/invalid/loaded=0/errors);
-|Владелец данных|
-while (Сводка устраивает?) is (нет)
-  :Исправить файл вручную;
-  |CLI ingestion|
-  :Повторить dry-run;
-  |Владелец данных|
-endwhile (да)
-|CLI ingestion|
-:Запустить загрузку без --dry-run;
-|PostgreSQL|
-:Upsert roles, vacancies, salary_info, skills;
-:Пересобрать vacancy_skills;
-:Upsert raw_source_metadata
-(payload, checksum sha256, parser_version);
-|CLI ingestion|
-:Вывести сводку (loaded_records);
-|Владелец данных|
-:Открыть «Проверка демо»
-и проверить дашборд;
-stop
-@enduml
+```mermaid
+flowchart TD
+    subgraph OWNER["Владелец данных"]
+        S((Старт)) --> A1["Нужно обновить данные"]
+        A1 --> A2["Подготовить JSON/CSV в data/samples"]
+        Q{"Сводка устраивает?"}
+        FIX["Исправить файл вручную"]
+        CHECK["Открыть «Проверка демо» и проверить дашборд"]
+        E((Конец))
+    end
+    subgraph CLI["CLI ingestion"]
+        B1["Запустить с --dry-run"]
+        B2["Прочитать файл (load_source_records)"]
+        B3["Проверить обязательные поля<br/>source_vacancy_id, title, company_name"]
+        B4["Очистить текст, нормализовать<br/>роль, грейд, навыки, зарплату"]
+        B5["Вывести JSON-сводку<br/>total / valid / invalid / loaded=0 / errors"]
+        B6["Запустить загрузку без --dry-run"]
+        B7["Вывести сводку (loaded_records)"]
+    end
+    subgraph PG["PostgreSQL"]
+        C1["Upsert roles, vacancies, salary_info, skills"]
+        C2["Пересобрать vacancy_skills"]
+        C3["Upsert raw_source_metadata<br/>payload, checksum sha256, parser_version"]
+    end
+    A2 --> B1 --> B2 --> B3 --> B4 --> B5 --> Q
+    Q -- нет --> FIX --> B1
+    Q -- да --> B6 --> C1 --> C2 --> C3 --> B7 --> CHECK --> E
 ```
+
+Исходник PlantUML: [diagrams/bpmn-as-is.puml](diagrams/bpmn-as-is.puml)
 
 ### Проблемы AS-IS
 
@@ -104,65 +94,48 @@ stop
 
 ### Диаграмма TO-BE
 
-```plantuml
-@startuml
-title TO-BE: автоматический сбор и обновление вакансий (проектное решение)
-|Коллектор|
-start
-:Таймер: каждые 6 часов;
-:Запросить новые и изменённые
-вакансии у источника;
-if (Источник ответил?) then (нет)
-  :Повторить с backoff
-  1 с / 5 с / 30 с;
-  if (Успешно после 3 попыток?) then (нет)
-    :Уведомить владельца данных;
-    stop
-  else (да)
-  endif
-else (да)
-endif
-:Опубликовать vacancy.ingested.v1
-по каждой вакансии;
-|Обработчик загрузки|
-:Получить событие;
-if (Схема валидна?) then (нет)
-  :Отправить в vacancy.ingested.v1.dlq
-  с error_code;
-  |Мониторинг|
-  :Увеличить счётчик DLQ;
-  stop
-else (да)
-endif
-|Обработчик загрузки|
-if (Вакансия уже есть?) then (да)
-  if (Checksum изменился?) then (нет)
-    :Пропустить дубль,
-    зафиксировать offset;
-    stop
-  else (да)
-  endif
-else (нет)
-endif
-:Очистить и нормализовать
-роль, грейд, навыки, зарплату;
-|PostgreSQL|
-:В одной транзакции: upsert vacancies,
-salary_info, vacancy_skills, raw_source_metadata;
-:Обновить счётчики в ingestion_runs;
-|Обработчик загрузки|
-:Зафиксировать offset;
-|Мониторинг|
-:Проверить метрики качества
-(other_data_role, unknown, доля DLQ);
-if (Порог превышен?) then (да)
-  :Отправить алерт владельцу данных;
-else (нет)
-endif
-:Данные актуальны;
-stop
-@enduml
+```mermaid
+flowchart TD
+    subgraph COL["Коллектор"]
+        S((Старт)) --> T["Таймер: каждые 6 часов"]
+        T --> R["Запросить новые и изменённые вакансии у источника"]
+        R --> Q1{"Источник ответил?"}
+        Q1 -- нет --> RB["Повторить с backoff 1 с / 5 с / 30 с"]
+        RB --> Q2{"Успешно после 3 попыток?"}
+        Q2 -- нет --> N1["Уведомить владельца данных"] --> E1((Конец))
+        PUB["Опубликовать vacancy.ingested.v1 по каждой вакансии"]
+        Q1 -- да --> PUB
+        Q2 -- да --> PUB
+    end
+    subgraph LOADER["Обработчик загрузки"]
+        G["Получить событие"] --> Q3{"Схема валидна?"}
+        Q3 -- нет --> DLQ["Отправить в vacancy.ingested.v1.dlq с error_code"]
+        Q3 -- да --> Q4{"Вакансия уже есть?"}
+        Q4 -- да --> Q5{"Checksum изменился?"}
+        Q5 -- нет --> SKIP["Пропустить дубль, зафиксировать offset"] --> E3((Конец))
+        Q5 -- да --> NORM["Очистить и нормализовать роль, грейд, навыки, зарплату"]
+        Q4 -- нет --> NORM
+        OFF["Зафиксировать offset"]
+    end
+    subgraph PG["PostgreSQL"]
+        TX["В одной транзакции: upsert vacancies,<br/>salary_info, vacancy_skills, raw_source_metadata"]
+        RUNS["Обновить счётчики в ingestion_runs"]
+    end
+    subgraph MON["Мониторинг"]
+        CNT["Увеличить счётчик DLQ"] --> E2((Конец))
+        QM["Проверить метрики качества<br/>other_data_role, unknown, доля DLQ"]
+        Q6{"Порог превышен?"}
+        AL["Отправить алерт владельцу данных"]
+        OK["Данные актуальны"] --> E4((Конец))
+    end
+    PUB --> G
+    DLQ --> CNT
+    NORM --> TX --> RUNS --> OFF --> QM --> Q6
+    Q6 -- да --> AL --> OK
+    Q6 -- нет --> OK
 ```
+
+Исходник PlantUML: [diagrams/bpmn-to-be.puml](diagrams/bpmn-to-be.puml)
 
 ## 3. Сравнение AS-IS и TO-BE
 

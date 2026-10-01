@@ -24,6 +24,23 @@
 - Поднял FastAPI endpoints для аналитических агрегатов.
 - Собрал Streamlit dashboard как рабочий инструмент анализа: фильтры, вкладки, skill chips, таблицы, графики и проверка демо.
 
+## Системный анализ
+
+Проект описан как система в [docs/system-analysis](docs/system-analysis/README.md). Всё, чего нет в коде, помечено как проектное решение (TO-BE).
+
+| Артефакт | Что внутри |
+|---|---|
+| [Бизнес-контекст](docs/system-analysis/01-business-context.md) | Проблема, стейкхолдеры, границы, метрики успеха |
+| [Требования](docs/system-analysis/02-requirements.md) | User stories с критериями приёмки (Given/When/Then), use case, НФТ, MoSCoW |
+| [Процесс AS-IS / TO-BE](docs/system-analysis/03-process-bpmn.md) | Загрузка вакансий: ручная сейчас и автоматическая в целевом состоянии |
+| [Модель данных](docs/system-analysis/04-data-model.md) | ER-диаграмма, словарь данных, ограничения, витрины `analytics.*` |
+| [API](docs/system-analysis/05-api.md) | [OpenAPI 3.0](docs/system-analysis/api/openapi.yaml), коды ошибок, problem+json |
+| [Sequence-диаграммы](docs/system-analysis/06-sequence.md) | Загрузка, запрос дашборда, обработка ошибок валидации |
+| [Интеграция](docs/system-analysis/07-integration.md) | Событие `vacancy.ingested.v1`, JSON Schema, идемпотентность, ретраи, DLQ |
+| [НФТ и архитектура](docs/system-analysis/08-nfr-architecture.md) | C4 Context и Container, нефункциональные требования, наблюдаемость |
+
+Диаграммы — Mermaid (GitHub рисует их на странице), исходники PlantUML лежат в [diagrams/](docs/system-analysis/diagrams/).
+
 ## Скриншоты
 
 ### Dashboard: Market Overview
@@ -245,7 +262,8 @@ IT_Skills_Radar
 ├── dashboard
 ├── data/samples
 ├── docs
-│   └── images
+│   ├── images
+│   └── system-analysis
 ├── sql
 ├── tests
 ├── docker-compose.yml
@@ -253,12 +271,6 @@ IT_Skills_Radar
 ├── Makefile
 └── requirements.txt
 ```
-
-## Документы для собеседования
-
-- [Interview defense](docs/interview_defense.md)
-- [Bullet points для резюме](docs/resume_bullets.md)
-- [Interview story](docs/interview_story.md)
 
 ## Лицензия
 

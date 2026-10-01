@@ -1,0 +1,38 @@
+@startuml
+title AS-IS: ручная загрузка вакансий из файла
+|Владелец данных|
+start
+:Нужно обновить данные;
+:Подготовить JSON/CSV
+в data/samples;
+|CLI ingestion|
+:Запустить с --dry-run;
+:Прочитать файл
+(load_source_records);
+:Проверить обязательные поля
+(source_vacancy_id, title, company_name);
+:Очистить текст, нормализовать
+роль, грейд, навыки, зарплату;
+:Вывести JSON-сводку
+(total/valid/invalid/loaded=0/errors);
+|Владелец данных|
+while (Сводка устраивает?) is (нет)
+  :Исправить файл вручную;
+  |CLI ingestion|
+  :Повторить dry-run;
+  |Владелец данных|
+endwhile (да)
+|CLI ingestion|
+:Запустить загрузку без --dry-run;
+|PostgreSQL|
+:Upsert roles, vacancies, salary_info, skills;
+:Пересобрать vacancy_skills;
+:Upsert raw_source_metadata
+(payload, checksum sha256, parser_version);
+|CLI ingestion|
+:Вывести сводку (loaded_records);
+|Владелец данных|
+:Открыть «Проверка демо»
+и проверить дашборд;
+stop
+@enduml

@@ -9,17 +9,16 @@ IT Skills Radar анализирует вакансии junior/intern-уровн
 Данные проходят пайплайн `JSON/CSV → validation → cleaning → normalization → PostgreSQL → SQL views → FastAPI → Streamlit`.
 Проект упакован в Docker Compose, покрыт тестами pytest и проверяется в GitHub Actions.
 
-## Роль автора
+## Статус документации
 
-Автор — Тимур ([TimoJR3](https://github.com/TimoJR3)). Код IT Skills Radar написан мной как пет-проект в период работы с аналитикой данных.
-**Эта документация подготовлена мной как упражнение по системному анализу к моему пет-проекту**: я описал систему так, как её описал бы системный аналитик — от бизнес-контекста и требований до API-контракта, интеграции и нефункциональных требований.
+Код проекта реализован; документация описывает его как системный аналитик — от бизнес-контекста и требований до API-контракта, интеграции и НФТ — и дополняет целевым (TO-BE) состоянием там, где кода пока нет.
 
 ## Как отличить реализованное от спроектированного
 
 Документация опирается на реальный код репозитория (`app/api/routes.py`, `app/schemas/analytics.py`, `sql/01_init_schema.sql`, `sql/03_analytics_views.sql`, `app/services/ingestion.py`, `app/services/normalization.py`, `docs/data_dictionary.md`, `docs/decisions.md`).
 
 - Всё, что есть в коде, описано как есть: имена таблиц, полей, витрин, эндпоинтов и параметров совпадают с репозиторием.
-- Всё, чего в коде нет, помечено в тексте: **(проектное решение, в текущей реализации отсутствует)**. Это целевое (TO-BE) состояние, которое я спроектировал как аналитик.
+- Всё, чего в коде нет, помечено в тексте: **(проектное решение, в текущей реализации отсутствует)**. Это целевое (TO-BE) состояние.
 
 ## Навигация по артефактам
 
@@ -27,7 +26,7 @@ IT Skills Radar анализирует вакансии junior/intern-уровн
 |---|---|---|
 | 1 | [Бизнес-контекст](01-business-context.md) | Проблема, цели, стейкхолдеры, границы (in/out of scope), метрики успеха |
 | 2 | [Требования](02-requirements.md) | 8 user stories с AC (Given/When/Then), use case UC-01, НФТ с числами, MoSCoW |
-| 3 | [Процесс (BPMN)](03-process-bpmn.md) | AS-IS и TO-BE процесса сбора и обновления вакансий: описание + PlantUML activity со swimlanes |
+| 3 | [Процесс (BPMN)](03-process-bpmn.md) | AS-IS и TO-BE процесса сбора и обновления вакансий: описание + диаграмма со swimlanes |
 | 4 | [Модель данных](04-data-model.md) | ER-диаграмма, словарь данных, ограничения, витрины `analytics.*` |
 | 5 | [API](05-api.md) + [openapi.yaml](api/openapi.yaml) | OpenAPI 3.0 спецификация, обзор эндпоинтов, примеры запросов/ответов, коды ошибок, problem+json |
 | 6 | [Sequence-диаграммы](06-sequence.md) | Загрузка данных, запрос дашборда через API, обработка ошибки валидации |
@@ -60,15 +59,13 @@ IT Skills Radar анализирует вакансии junior/intern-уровн
 | Инфраструктура | Docker Compose (`db`, `api`, `dashboard`) |
 | Качество | pytest, GitHub Actions (`.github/workflows/ci.yml`) |
 
-Стек документации: Markdown, PlantUML (диаграммы как код), OpenAPI 3.0.3 (YAML), JSON Schema 2020-12.
+Стек документации: Markdown, Mermaid и PlantUML (диаграммы как код), OpenAPI 3.0.3 (YAML), JSON Schema 2020-12.
 
 ## Как читать диаграммы
 
-Диаграммы хранятся как код в блоках ```` ```plantuml ```` внутри `.md`. GitHub показывает их как текст, поэтому для просмотра картинки:
-
-1. **Онлайн**: скопируйте блок от `@startuml` до `@enduml` на [plantuml.com/plantuml](https://www.plantuml.com/plantuml/uml/) или [plantuml.online](https://plantuml.online).
-2. **VS Code**: установите расширение *PlantUML* (jebbs.plantuml), откройте `.md` и нажмите `Alt+D` на блоке диаграммы. Для локального рендера нужна Java или настройка `plantuml.server`.
-3. **C4-диаграммы** используют стандартную библиотеку `!include <C4/C4_Container>`, она встроена в PlantUML — дополнительных файлов не нужно.
+Диаграммы в `.md` написаны на Mermaid — GitHub показывает их как картинки прямо на странице.
+Исходники в PlantUML (BPMN-дорожки, C4 через `!include <C4/...>`) лежат в [diagrams/](diagrams/); под каждой диаграммой есть ссылка на её `.puml`.
+Отрисовать PlantUML можно на [plantuml.com](https://www.plantuml.com/plantuml/uml/) или расширением *PlantUML* в VS Code.
 
 OpenAPI-спецификацию удобно смотреть в [Swagger Editor](https://editor.swagger.io/): *File → Import file → `api/openapi.yaml`*.
 
@@ -86,6 +83,7 @@ docs/system-analysis/
 ├── 07-integration.md
 ├── 08-nfr-architecture.md
 ├── 09-glossary.md
-└── api/
-    └── openapi.yaml
+├── api/
+│   └── openapi.yaml
+└── diagrams/          # исходники PlantUML (*.puml)
 ```

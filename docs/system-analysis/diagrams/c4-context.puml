@@ -1,0 +1,22 @@
+@startuml
+!include <C4/C4_Context>
+title C4 Context: IT Skills Radar
+LAYOUT_WITH_LEGEND()
+
+Person(student, "Студент / junior-аналитик", "Выбирает навыки для обучения")
+Person(mentor, "Ментор", "Сравнивает роли и навыки")
+Person(owner, "Владелец данных", "Готовит и загружает вакансии, проверяет стенд")
+System(radar, "IT Skills Radar", "Нормализует вакансии, считает витрины навыков, отдаёт API и дашборд")
+System_Ext(files, "Подготовленные файлы JSON/CSV", "data/samples, текущий источник данных")
+System_Ext(jobapi, "API источников вакансий", "hh.ru, Habr Карьера, SuperJob (проект)")
+System_Ext(consumer, "Внешний потребитель API", "Сторонний сервис или ноутбук аналитика (проект)")
+System_Ext(gha, "GitHub Actions", "CI: компиляция и pytest")
+
+Rel(student, radar, "Смотрит топ навыков, тренды, зарплатный сигнал", "HTTPS, браузер")
+Rel(mentor, radar, "Сравнивает роли", "HTTPS, браузер")
+Rel(owner, radar, "Запускает загрузку, проверяет «Проверка демо»", "CLI, браузер")
+Rel(radar, files, "Читает", "файловая система")
+Rel(radar, jobapi, "Забирает вакансии каждые 6 ч (проект)", "HTTPS/JSON")
+Rel(consumer, radar, "Запрашивает аналитику (проект)", "HTTPS/JSON")
+Rel(gha, radar, "Проверяет каждый коммит", "git")
+@enduml
