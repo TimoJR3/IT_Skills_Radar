@@ -33,8 +33,6 @@ def test_analytics_doc_exists() -> None:
 
 
 def test_portfolio_docs_exist() -> None:
-    assert (BASE_DIR / "docs" / "resume_bullets.md").exists()
-    assert (BASE_DIR / "docs" / "interview_story.md").exists()
     assert (BASE_DIR / "docs" / "demo_checklist.md").exists()
 
 

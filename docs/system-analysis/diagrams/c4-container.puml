@@ -1,0 +1,31 @@
+@startuml
+!include <C4/C4_Container>
+title C4 Container: IT Skills Radar
+LAYOUT_WITH_LEGEND()
+
+Person(user, "Пользователь", "Студент, ментор")
+Person(owner, "Владелец данных")
+System_Ext(files, "JSON/CSV", "data/samples")
+System_Ext(jobapi, "API источников вакансий", "проект")
+
+System_Boundary(radar, "IT Skills Radar") {
+  Container(dash, "Dashboard", "Python, Streamlit", "6 разделов на русском; ApiClient с таймаутом 20 с; порт 8501")
+  Container(api, "API", "Python 3.11, FastAPI, SQLAlchemy", "Эндпоинты только на чтение; AnalyticsService; порт 8000")
+  Container(cli, "Ingestion CLI", "Python, app.services.ingestion", "Валидация, очистка, нормализация, upsert; запускается в контейнере api")
+  ContainerDb(db, "PostgreSQL 16", "PostgreSQL", "Таблицы raw и final, схема analytics с 5 VIEW")
+  Container(collector, "Collector", "Python", "Опрос API источников по расписанию (проект)")
+  ContainerQueue(broker, "Kafka", "vacancy.ingested.v1 + DLQ", "Транспорт событий (проект)")
+  Container(loader, "Loader", "Python", "Консьюмер событий, переиспользует normalization.py (проект)")
+}
+
+Rel(user, dash, "Открывает", "HTTP :8501")
+Rel(dash, api, "GET /roles, /skills/*, /salary/premium, /overview/junior", "HTTP/JSON")
+Rel(api, db, "SELECT из analytics.*", "SQL")
+Rel(owner, cli, "python -m app.services.ingestion", "docker compose exec")
+Rel(cli, files, "Читает")
+Rel(cli, db, "Upsert", "SQL")
+Rel(collector, jobapi, "Забирает вакансии", "HTTPS")
+Rel(collector, broker, "Публикует события")
+Rel(broker, loader, "Доставляет события")
+Rel(loader, db, "Upsert в транзакции", "SQL")
+@enduml

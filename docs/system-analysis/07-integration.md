@@ -32,26 +32,25 @@
 | PostgreSQL | Хранилище | `vacancies`, `salary_info`, `vacancy_skills`, `raw_source_metadata`, `ingestion_runs` |
 | Владелец данных | Эксплуатация | Разбор DLQ, реакция на алерты |
 
-```plantuml
-@startuml
-title Интеграция с источником вакансий (проектное решение)
-left to right direction
-cloud "API источника\n(hh.ru и др.)" as SRC
-component "Коллектор\nskills-radar-collector" as COL
-queue "vacancy.ingested.v1" as TOPIC
-queue "vacancy.ingested.v1.dlq" as DLQ
-component "Обработчик загрузки\nskills-radar-loader" as LOAD
-database "PostgreSQL" as DB
-actor "Владелец данных" as OWNER
+```mermaid
+flowchart LR
+    SRC{{"API источника<br/>(hh.ru и др.)"}}
+    COL["Коллектор<br/>skills-radar-collector"]
+    TOPIC[/"vacancy.ingested.v1"/]
+    DLQ[/"vacancy.ingested.v1.dlq"/]
+    LOAD["Обработчик загрузки<br/>skills-radar-loader"]
+    DB[("PostgreSQL")]
+    OWNER(["👤 Владелец данных"])
 
-COL --> SRC : HTTPS GET, каждые 6 ч
-COL --> TOPIC : publish\nkey = source_name:source_vacancy_id
-TOPIC --> LOAD : consume\ngroup skills-radar-loader
-LOAD --> DB : upsert в одной транзакции
-LOAD --> DLQ : невалидные / после 3 ретраев
-DLQ ..> OWNER : алерт и разбор
-@enduml
+    COL -- "HTTPS GET, каждые 6 ч" --> SRC
+    COL -- "publish<br/>key = source_name:source_vacancy_id" --> TOPIC
+    TOPIC -- "consume<br/>group skills-radar-loader" --> LOAD
+    LOAD -- "upsert в одной транзакции" --> DB
+    LOAD -- "невалидные / после 3 ретраев" --> DLQ
+    DLQ -. "алерт и разбор" .-> OWNER
 ```
+
+Исходник PlantUML: [diagrams/integration.puml](diagrams/integration.puml)
 
 ## 3. Формат сообщения
 
