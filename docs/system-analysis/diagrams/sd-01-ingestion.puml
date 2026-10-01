@@ -1,0 +1,45 @@
+@startuml
+title SD-01. Загрузка вакансий из JSON/CSV
+autonumber
+actor "Владелец данных" as D
+participant "CLI\napp.services.ingestion" as CLI
+participant "normalization.py" as N
+participant "PostgresIngestionWriter" as W
+database "PostgreSQL" as DB
+
+D -> CLI : python -m app.services.ingestion\n--input data/samples/prepared_vacancies.json --source manual
+activate CLI
+CLI -> CLI : load_source_records()\nJSON: массив или {"items": [...]}; CSV: DictReader
+loop для каждой записи
+  CLI -> CLI : validate_required_fields()\nsource_vacancy_id, title, company_name
+  alt обязательного поля нет
+    CLI -> CLI : invalid_records += 1\nerrors += "Missing required field: ..."
+  else запись валидна
+    CLI -> N : clean_text(), роль, грейд,\nнавыки, зарплата, формат работы
+    N --> CLI : нормализованная вакансия
+  end
+end
+alt режим --dry-run
+  CLI --> D : IngestionResult (loaded_records = 0)
+else обычный режим
+  CLI -> W : write(нормализованные вакансии)
+  activate W
+  loop для каждой вакансии
+    W -> DB : _upsert_role()\nON CONFLICT (role_code)
+    DB --> W : role_id
+    W -> DB : _upsert_vacancy()\nON CONFLICT (source_name, source_vacancy_id)
+    DB --> W : vacancy_id
+    alt зарплата указана
+      W -> DB : _upsert_salary()\nON CONFLICT (vacancy_id)
+    else зарплаты нет
+      W -> DB : удалить строку salary_info
+    end
+    W -> DB : _replace_skills()\nудалить связи, _upsert_skill(), вставить vacancy_skills
+    W -> DB : _upsert_raw_metadata()\nsource_payload, checksum sha256,\nparser_version = rule_based_v1
+  end
+  W --> CLI : loaded_records
+  deactivate W
+  CLI --> D : JSON-сводка: total_records, valid_records,\ninvalid_records, loaded_records, errors
+end
+deactivate CLI
+@enduml

@@ -17,110 +17,95 @@
 
 Сущность `ingestion_runs` отмечена стереотипом `<<проект>>` — (проектное решение, в текущей реализации отсутствует).
 
-```plantuml
-@startuml
-hide circle
-skinparam linetype ortho
+```mermaid
+erDiagram
+    roles ||--o{ vacancies : "role_id"
+    vacancies ||--o| salary_info : "vacancy_id"
+    vacancies ||--o{ vacancy_skills : "vacancy_id"
+    skills ||--o{ vacancy_skills : "skill_id"
+    vacancies ||--o| raw_source_metadata : "vacancy_id"
+    ingestion_runs }o..o{ vacancies : "логическая связь по source_name и времени"
 
-entity "roles" as roles {
-  * id : bigserial <<PK>>
-  --
-  * role_code : text <<UK>>
-  * role_name : text
-  * role_group : text
-  * created_at : timestamptz
-}
-
-entity "skills" as skills {
-  * id : bigserial <<PK>>
-  --
-  * skill_name : text
-  * skill_slug : text <<UK>>
-  skill_category : text
-  * is_active : boolean
-  * created_at : timestamptz
-}
-
-entity "vacancies" as vacancies {
-  * id : bigserial <<PK>>
-  --
-  * source_name : text
-  * source_vacancy_id : text
-  * role_id : bigint <<FK>>
-  * title : text
-  * company_name : text
-  city : text
-  * country : text
-  * seniority_level : text
-  * employment_type : text
-  * work_format : text
-  description_text : text
-  vacancy_url : text
-  published_at : timestamptz
-  * collected_at : timestamptz
-  * is_active : boolean
-  * created_at : timestamptz
-  * updated_at : timestamptz
-}
-
-entity "salary_info" as salary {
-  * vacancy_id : bigint <<PK, FK>>
-  --
-  salary_from : numeric(12,2)
-  salary_to : numeric(12,2)
-  salary_mid : numeric(12,2)
-  * currency_code : char(3)
-  * gross_type : text
-  * salary_period : text
-  salary_comment : text
-  * created_at : timestamptz
-}
-
-entity "vacancy_skills" as vs {
-  * vacancy_id : bigint <<PK, FK>>
-  * skill_id : bigint <<PK, FK>>
-  --
-  * is_required : boolean
-  * match_source : text
-  * created_at : timestamptz
-}
-
-entity "raw_source_metadata" as raw {
-  * id : bigserial <<PK>>
-  --
-  * vacancy_id : bigint <<FK, UK>>
-  * source_name : text
-  source_url : text
-  * source_payload : jsonb
-  * parser_version : text
-  http_status : integer
-  checksum : text
-  * collected_at : timestamptz
-  * created_at : timestamptz
-}
-
-entity "ingestion_runs" as runs <<проект>> {
-  * run_id : uuid <<PK>>
-  --
-  * source_name : text
-  * started_at : timestamptz
-  finished_at : timestamptz
-  * status : text
-  total_records : integer
-  valid_records : integer
-  invalid_records : integer
-  loaded_records : integer
-  errors : jsonb
-}
-
-roles ||--o{ vacancies : "role_id"
-vacancies ||--o| salary : "vacancy_id"
-vacancies ||--o{ vs : "vacancy_id"
-skills ||--o{ vs : "skill_id"
-vacancies ||--o| raw : "vacancy_id"
-runs .. vacancies : "логическая связь\nпо source_name и времени"
-@enduml
+    roles {
+        bigserial id PK
+        text role_code UK
+        text role_name
+        text role_group
+        timestamptz created_at
+    }
+    skills {
+        bigserial id PK
+        text skill_name
+        text skill_slug UK
+        text skill_category "nullable"
+        boolean is_active
+        timestamptz created_at
+    }
+    vacancies {
+        bigserial id PK
+        text source_name
+        text source_vacancy_id
+        bigint role_id FK
+        text title
+        text company_name
+        text city "nullable"
+        text country
+        text seniority_level
+        text employment_type
+        text work_format
+        text description_text "nullable"
+        text vacancy_url "nullable"
+        timestamptz published_at "nullable"
+        timestamptz collected_at
+        boolean is_active
+        timestamptz created_at
+        timestamptz updated_at
+    }
+    salary_info {
+        bigint vacancy_id PK, FK
+        numeric salary_from "numeric(12,2), nullable"
+        numeric salary_to "numeric(12,2), nullable"
+        numeric salary_mid "numeric(12,2), nullable"
+        char currency_code "char(3)"
+        text gross_type
+        text salary_period
+        text salary_comment "nullable"
+        timestamptz created_at
+    }
+    vacancy_skills {
+        bigint vacancy_id PK, FK
+        bigint skill_id PK, FK
+        boolean is_required
+        text match_source
+        timestamptz created_at
+    }
+    raw_source_metadata {
+        bigserial id PK
+        bigint vacancy_id FK, UK
+        text source_name
+        text source_url "nullable"
+        jsonb source_payload
+        text parser_version
+        integer http_status "nullable"
+        text checksum "nullable"
+        timestamptz collected_at
+        timestamptz created_at
+    }
+    ingestion_runs {
+        uuid run_id PK "проект"
+        text source_name
+        timestamptz started_at
+        timestamptz finished_at "nullable"
+        text status
+        integer total_records "nullable"
+        integer valid_records "nullable"
+        integer invalid_records "nullable"
+        integer loaded_records "nullable"
+        jsonb errors "nullable"
+    }
 ```
+
+Исходник PlantUML: [diagrams/er-model.puml](diagrams/er-model.puml)
 
 ### Связи
 

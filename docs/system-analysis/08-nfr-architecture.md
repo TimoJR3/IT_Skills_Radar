@@ -6,68 +6,78 @@
 
 Внешние участники, отмеченные «проект», — (проектное решение, в текущей реализации отсутствует).
 
-```plantuml
-@startuml
-!include <C4/C4_Context>
-title C4 Context: IT Skills Radar
-LAYOUT_WITH_LEGEND()
+```mermaid
+flowchart TB
+    student(["👤 Студент / junior-аналитик<br/><small>Выбирает навыки для обучения</small>"])
+    mentor(["👤 Ментор<br/><small>Сравнивает роли и навыки</small>"])
+    owner(["👤 Владелец данных<br/><small>Готовит и загружает вакансии, проверяет стенд</small>"])
+    radar["<b>IT Skills Radar</b><br/><small>Нормализует вакансии, считает витрины навыков,<br/>отдаёт API и дашборд</small>"]
+    files["Подготовленные файлы JSON/CSV<br/><small>data/samples, текущий источник данных</small>"]
+    jobapi["API источников вакансий<br/><small>hh.ru, Habr Карьера, SuperJob (проект)</small>"]
+    consumer["Внешний потребитель API<br/><small>Сторонний сервис или ноутбук аналитика (проект)</small>"]
+    gha["GitHub Actions<br/><small>CI: компиляция и pytest</small>"]
 
-Person(student, "Студент / junior-аналитик", "Выбирает навыки для обучения")
-Person(mentor, "Ментор", "Сравнивает роли и навыки")
-Person(owner, "Владелец данных", "Готовит и загружает вакансии, проверяет стенд")
-System(radar, "IT Skills Radar", "Нормализует вакансии, считает витрины навыков, отдаёт API и дашборд")
-System_Ext(files, "Подготовленные файлы JSON/CSV", "data/samples, текущий источник данных")
-System_Ext(jobapi, "API источников вакансий", "hh.ru, Habr Карьера, SuperJob (проект)")
-System_Ext(consumer, "Внешний потребитель API", "Сторонний сервис или ноутбук аналитика (проект)")
-System_Ext(gha, "GitHub Actions", "CI: компиляция и pytest")
+    student -- "Смотрит топ навыков, тренды, зарплатный сигнал<br/>[HTTPS, браузер]" --> radar
+    mentor -- "Сравнивает роли<br/>[HTTPS, браузер]" --> radar
+    owner -- "Запускает загрузку, проверяет «Проверка демо»<br/>[CLI, браузер]" --> radar
+    radar -- "Читает<br/>[файловая система]" --> files
+    radar -. "Забирает вакансии каждые 6 ч (проект)<br/>[HTTPS/JSON]" .-> jobapi
+    consumer -. "Запрашивает аналитику (проект)<br/>[HTTPS/JSON]" .-> radar
+    gha -- "Проверяет каждый коммит<br/>[git]" --> radar
 
-Rel(student, radar, "Смотрит топ навыков, тренды, зарплатный сигнал", "HTTPS, браузер")
-Rel(mentor, radar, "Сравнивает роли", "HTTPS, браузер")
-Rel(owner, radar, "Запускает загрузку, проверяет «Проверка демо»", "CLI, браузер")
-Rel(radar, files, "Читает", "файловая система")
-Rel(radar, jobapi, "Забирает вакансии каждые 6 ч (проект)", "HTTPS/JSON")
-Rel(consumer, radar, "Запрашивает аналитику (проект)", "HTTPS/JSON")
-Rel(gha, radar, "Проверяет каждый коммит", "git")
-@enduml
+    classDef system fill:#1168bd,stroke:#0b4884,color:#fff
+    classDef ext fill:#999,stroke:#6b6b6b,color:#fff
+    classDef person fill:#08427b,stroke:#052e56,color:#fff
+    class radar system
+    class files,jobapi,consumer,gha ext
+    class student,mentor,owner person
 ```
+
+Исходник PlantUML: [diagrams/c4-context.puml](diagrams/c4-context.puml)
 
 ## 2. C4 Level 2 — Containers
 
 Текущие контейнеры соответствуют `docker-compose.yml`: `db`, `api`, `dashboard`. Контейнеры коллектора, брокера и обработчика — (проектное решение, в текущей реализации отсутствует).
 
-```plantuml
-@startuml
-!include <C4/C4_Container>
-title C4 Container: IT Skills Radar
-LAYOUT_WITH_LEGEND()
+```mermaid
+flowchart TB
+    user(["👤 Пользователь<br/><small>Студент, ментор</small>"])
+    owner(["👤 Владелец данных"])
+    files["JSON/CSV<br/><small>data/samples</small>"]
+    jobapi["API источников вакансий<br/><small>проект</small>"]
 
-Person(user, "Пользователь", "Студент, ментор")
-Person(owner, "Владелец данных")
-System_Ext(files, "JSON/CSV", "data/samples")
-System_Ext(jobapi, "API источников вакансий", "проект")
+    subgraph radar["IT Skills Radar"]
+        dash["<b>Dashboard</b><br/>[Python, Streamlit]<br/><small>6 разделов на русском, ApiClient с таймаутом 20 с, порт 8501</small>"]
+        api["<b>API</b><br/>[Python 3.11, FastAPI, SQLAlchemy]<br/><small>Эндпоинты только на чтение, AnalyticsService, порт 8000</small>"]
+        cli["<b>Ingestion CLI</b><br/>[Python, app.services.ingestion]<br/><small>Валидация, очистка, нормализация, upsert,<br/>запускается в контейнере api</small>"]
+        db[("<b>PostgreSQL 16</b><br/><small>Таблицы raw и final,<br/>схема analytics с 5 VIEW</small>")]
+        collector["<b>Collector</b> (проект)<br/>[Python]<br/><small>Опрос API источников по расписанию</small>"]
+        broker[/"<b>Kafka</b> (проект)<br/><small>vacancy.ingested.v1 + DLQ</small>"/]
+        loader["<b>Loader</b> (проект)<br/>[Python]<br/><small>Консьюмер событий, переиспользует normalization.py</small>"]
+    end
 
-System_Boundary(radar, "IT Skills Radar") {
-  Container(dash, "Dashboard", "Python, Streamlit", "6 разделов на русском; ApiClient с таймаутом 20 с; порт 8501")
-  Container(api, "API", "Python 3.11, FastAPI, SQLAlchemy", "Эндпоинты только на чтение; AnalyticsService; порт 8000")
-  Container(cli, "Ingestion CLI", "Python, app.services.ingestion", "Валидация, очистка, нормализация, upsert; запускается в контейнере api")
-  ContainerDb(db, "PostgreSQL 16", "PostgreSQL", "Таблицы raw и final, схема analytics с 5 VIEW")
-  Container(collector, "Collector", "Python", "Опрос API источников по расписанию (проект)")
-  ContainerQueue(broker, "Kafka", "vacancy.ingested.v1 + DLQ", "Транспорт событий (проект)")
-  Container(loader, "Loader", "Python", "Консьюмер событий, переиспользует normalization.py (проект)")
-}
+    user -- "Открывает<br/>[HTTP :8501]" --> dash
+    dash -- "GET /roles, /skills/*, /salary/premium, /overview/junior<br/>[HTTP/JSON]" --> api
+    api -- "SELECT из analytics.*<br/>[SQL]" --> db
+    owner -- "python -m app.services.ingestion<br/>[docker compose exec]" --> cli
+    cli -- "Читает" --> files
+    cli -- "Upsert<br/>[SQL]" --> db
+    collector -. "Забирает вакансии<br/>[HTTPS]" .-> jobapi
+    collector -. "Публикует события" .-> broker
+    broker -. "Доставляет события" .-> loader
+    loader -. "Upsert в транзакции<br/>[SQL]" .-> db
 
-Rel(user, dash, "Открывает", "HTTP :8501")
-Rel(dash, api, "GET /roles, /skills/*, /salary/premium, /overview/junior", "HTTP/JSON")
-Rel(api, db, "SELECT из analytics.*", "SQL")
-Rel(owner, cli, "python -m app.services.ingestion", "docker compose exec")
-Rel(cli, files, "Читает")
-Rel(cli, db, "Upsert", "SQL")
-Rel(collector, jobapi, "Забирает вакансии", "HTTPS")
-Rel(collector, broker, "Публикует события")
-Rel(broker, loader, "Доставляет события")
-Rel(loader, db, "Upsert в транзакции", "SQL")
-@enduml
+    classDef container fill:#438dd5,stroke:#2e6295,color:#fff
+    classDef planned fill:#438dd5,stroke:#2e6295,color:#fff,stroke-dasharray: 5 5
+    classDef ext fill:#999,stroke:#6b6b6b,color:#fff
+    classDef person fill:#08427b,stroke:#052e56,color:#fff
+    class dash,api,cli,db container
+    class collector,broker,loader planned
+    class files,jobapi ext
+    class user,owner person
 ```
+
+Исходник PlantUML: [diagrams/c4-container.puml](diagrams/c4-container.puml)
 
 ### Архитектурные решения
 

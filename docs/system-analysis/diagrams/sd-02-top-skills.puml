@@ -1,0 +1,49 @@
+@startuml
+title SD-02. Раздел «Карта рынка»: топ навыков
+autonumber
+actor "Пользователь" as U
+participant "Streamlit\ndashboard/app.py" as S
+participant "ApiClient\n(timeout 20 с)" as C
+participant "FastAPI\nroutes.py" as A
+participant "AnalyticsService" as AS
+database "PostgreSQL\nanalytics.*" as DB
+
+U -> S : открыть «Карта рынка»
+S -> C : get roles
+C -> A : GET /roles
+A -> AS : get_roles()
+AS -> DB : SELECT роли
+DB --> AS : строки
+AS --> A : list[dict]
+A --> C : 200 [RoleItem]
+C --> S : ApiResult(ok = true)
+S --> U : фильтры роли и грейда
+
+U -> S : роль = data_analyst, грейд = junior
+S -> C : get top skills
+C -> A : GET /skills/top?role_code=data_analyst\n&seniority_levels=junior&rank_limit=10
+activate A
+A -> A : валидация Query-параметров\n(rank_limit 1..30)
+A -> AS : get_top_skills_by_role(role_code,\nseniority_levels, rank_limit)
+AS -> DB : SELECT ... FROM analytics.top_skills_by_role\nWHERE ... AND skill_rank <= :rank_limit
+alt данные получены
+  DB --> AS : 0..N строк
+  AS --> A : list[dict]
+  A --> C : 200 [TopSkillItem]
+  C --> S : ApiResult(ok = true, data)
+  alt список пуст
+    S --> U : «Нет данных для выбранных фильтров»
+  else есть строки
+    S --> U : график и таблица навыков
+  end
+else SQLAlchemyError (БД недоступна / витрины не созданы)
+  DB --> AS : ошибка
+  AS --> A : исключение
+  A --> C : 503 {"detail": "База данных не инициализирована..."}
+  C --> S : ApiResult(ok = false, status_code = 503)
+  S --> U : сообщение об ошибке
+end
+deactivate A
+
+note over C : При httpx.RequestError (нет соединения, таймаут)\nApiClient возвращает ApiResult(ok = false)\nбез повторов. Повтор — действие пользователя.
+@enduml
