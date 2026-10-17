@@ -1,18 +1,34 @@
-# IT Skills Radar
+# IT Skills Radar — какие навыки ждут от junior-аналитиков
 
-`IT Skills Radar` — portfolio data-project на подготовленных данных вакансий junior/intern data-product ролей. Проект показывает, какие навыки чаще встречаются в вакансиях, как спрос меняется по месяцам, чем отличаются роли и какие навыки дают зарплатный аналитический сигнал без причинных выводов.
+[![CI](https://github.com/TimoJR3/IT_Skills_Radar/actions/workflows/ci.yml/badge.svg)](https://github.com/TimoJR3/IT_Skills_Radar/actions/workflows/ci.yml)
+![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-6BA539)
+![BPMN](https://img.shields.io/badge/BPMN-AS--IS_%2F_TO--BE-orange)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-views-336791)
+![FastAPI](https://img.shields.io/badge/FastAPI-API-009688)
 
-## Executive Summary
+Сервис анализирует вакансии junior/intern в data- и product-аналитике: какие навыки
+встречаются чаще, как меняется спрос по месяцам, чем отличаются роли. Проект сделан
+в двух слоях: **работающий пайплайн** (`JSON/CSV → валидация → PostgreSQL → SQL-витрины
+→ FastAPI → Streamlit`) и **комплект документации системного аналитика**, описывающий
+эту систему от бизнес-контекста до контракта API и интеграции.
 
-Проект строит воспроизводимый аналитический пайплайн: `JSON/CSV -> validation -> cleaning -> normalization -> PostgreSQL -> SQL views -> FastAPI -> Streamlit`.
+**Роль:** системный аналитик и аналитик данных · **Стек:** PostgreSQL, SQL, FastAPI,
+Streamlit, OpenAPI 3.0.3, BPMN 2.0, UML, C4, PlantUML / Mermaid, Docker, pytest, GitHub Actions
 
-Данные: подготовленные вакансии из локальных `JSON/CSV` sample-файлов. Это не live-мониторинг рынка труда, а аккуратно оформленный портфельный data-проект на подготовленном наборе вакансий.
+## Главное
 
-Что демонстрирует: data cleaning, rule-based normalization ролей и навыков, SQL modeling, PostgreSQL views, API, dashboard, Docker, pytest и CI.
+| | |
+|---|---|
+| **Документация** | 9 документов: бизнес-контекст, 8 user stories с критериями приёмки (Given/When/Then) и НФТ, BPMN AS-IS / TO-BE, ER-модель, use case и sequence, C4, спецификация интеграции, глоссарий |
+| **Контракт API** | [OpenAPI 3.0.3](docs/system-analysis/api/openapi.yaml): 8 эндпоинтов (6 реализованы, 2 спроектированы), коды ответов, примеры запросов и ответов |
+| **Найденные дефекты контракта** | неизвестная роль возвращала `200 []` вместо `404`; ошибки формата и смысла не различались — в целевом контракте разведены `422` и `400`, добавлен `503` и единый формат ошибок `problem+json` (RFC 9457) |
+| **Интеграция** | событие `vacancy.ingested.v1` с JSON Schema, идемпотентность, повторные попытки, DLQ |
+| **Данные** | 5 SQL-витрин в PostgreSQL, нормализация ролей и навыков через словарь синонимов, проверка на 10 000 строк |
 
-Почему релевантно для Product/Data Analyst и Data Analyst: проект переводит размытый бизнес-вопрос "какие навыки важны для junior data/product ролей" в метрики, витрины, фильтры, dashboard и честную интерпретацию ограничений данных.
+Реализованное и спроектированное разделены явно: всё, чего нет в коде, помечено как
+проектное решение (TO-BE).
 
-## Что я сделал как аналитик
+## Что сделано в коде
 
 - Настроил ingestion подготовленных вакансий из `JSON/CSV`.
 - Добавил validation обязательных полей и типов данных.
@@ -24,7 +40,7 @@
 - Поднял FastAPI endpoints для аналитических агрегатов.
 - Собрал Streamlit dashboard как рабочий инструмент анализа: фильтры, вкладки, skill chips, таблицы, графики и проверка демо.
 
-## Системный анализ
+## Документация системного анализа
 
 Проект описан как система в [docs/system-analysis](docs/system-analysis/README.md). Всё, чего нет в коде, помечено как проектное решение (TO-BE).
 
@@ -43,7 +59,7 @@
 
 ## Скриншоты
 
-### Dashboard: Market Overview
+### Дашборд: обзор роли
 
 ![IT Skills Radar dashboard: market overview](docs/images/dashboard_market_overview.jpg)
 
@@ -53,7 +69,7 @@
 
 Вывод: dashboard работает как аналитический workspace, а не просто набор графиков: сначала дает контекст, затем позволяет провалиться в распределения, тренды и salary signal.
 
-### Dashboard: Top Skills
+### Дашборд: топ навыков
 
 ![IT Skills Radar dashboard: top skills](docs/images/dashboard_top_skills.jpg)
 
@@ -139,9 +155,9 @@ Streamlit dashboard
 | `GET /salary/premium` | Salary signal по навыкам |
 | `GET /overview/junior` | Обзор junior/intern ролей |
 
-## Dashboard Storytelling
+## Как устроен дашборд
 
-Dashboard сделан как инструмент анализа, а не как статичная галерея графиков:
+Дашборд — инструмент анализа, а не галерея графиков:
 
 - верхняя панель фиксирует выбранный сегмент: роль, seniority и skills;
 - вкладка `Карта рынка` дает быстрый профиль роли;
@@ -226,7 +242,7 @@ make check
 
 В CI GitHub Actions запускает установку зависимостей, проверку компиляции и `pytest`.
 
-## Demo-сценарий
+## Сценарий демонстрации
 
 1. Открыть dashboard.
 2. В верхней панели выбрать роль `Data Scientist` или `Product Analyst`.
